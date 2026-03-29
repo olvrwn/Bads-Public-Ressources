@@ -47,16 +47,13 @@ jobs:
       - name: Parse agent summary
         id: summary
         run: |
-          # Extract last JSON block from output
           python - << 'PYEOF'
           import json, sys, os
 
           with open("agent_output.json") as f:
               content = f.read()
 
-          # The agent prints its summary dict at the end — parse it
           lines = content.strip().split("\n")
-          # Find lines that look like the JSON summary block
           json_start = None
           for i, line in enumerate(lines):
               if line.strip() == "{":
@@ -69,7 +66,6 @@ jobs:
           with open("summary.json", "w") as f:
               json.dump(summary, f)
 
-          # Write to GitHub Actions env
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"total={summary['total_guides']}\n")
               out.write(f"added={summary['new_added']}\n")
@@ -81,11 +77,11 @@ jobs:
       - name: Commit updated guides JSON
         id: commit
         run: |
-          BRANCH="guides-update-$(date +%Y-%m-%d)"
+          BRANCH="guides-update-$(date +%Y-%m-%d)-${{ github.run_number }}"
           git config user.name  "guides-bot"
           git config user.email "guides-bot@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add guides.json           # ← matches GUIDES_FILE in agent.py
+          git add guides.json
           git diff --cached --quiet && echo "no_changes=true" >> $GITHUB_OUTPUT || true
           git commit -m "chore: weekly guides update $(date +%Y-%m-%d)" || true
           git push origin "$BRANCH"
