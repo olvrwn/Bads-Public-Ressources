@@ -1,34 +1,81 @@
 """
 Habit Tracker Guides Agent
-Runs weekly to discover, validate, audit and update guides JSON.
+Runs weekly to discover, validate, audit and update guides.json.
+
+Pipeline:
+  1. Discover  — find native-language articles per habit × language
+  2. Validate  — score quality, check liveness, reject low-quality
+  3. Audit     — re-check existing guides for staleness / dead links
+  4. Enrich    — assign constrained tags via Claude
+  5. Save      — merge, validate schema (with auto-repair), persist JSON
 """
 
 import os
 import json
 import httpx
 import anthropic
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
 GUIDES_FILE = "guides.json"
-VALIDATION_THRESHOLD = 7.0                # articles below this score are rejected
-SEARCH_TOPICS = [                         # ← customise these to your app's topics
-    "bad habits risks and side effects",
-    "habit breaking science research",
-    "dopamine addiction psychology",
-    "behaviour change techniques",
-    "habit loop neuroscience",
-    "overcoming addictive habits",
-    "screen time social media addiction risks",
-    "sugar addiction health effects",
-    "sleep habit improvement science",
+VALIDATION_THRESHOLD = 7.0
+
+# All habits matching your Swift Habit enum raw values
+HABITS: list[str] = [
+    "Tobacco", "Alcohol", "Weed", "Pills", "Opioids",
+    "Cocaine", "Ecstasy", "Mushrooms", "Amphetamines",
+    "LSD", "GHB", "Heroin", "Gambling",
 ]
-TRUSTED_DOMAINS = [                       # ← articles from these skip strict checks
+
+# Target languages — code must be a valid ISO 639-1 value
+LANGUAGES: list[dict] = [
+    {"code": "en", "name": "English",    "locale": "English-language"},
+    {"code": "fr", "name": "French",     "locale": "French-language"},
+    {"code": "de", "name": "German",     "locale": "German-language"},
+    {"code": "es", "name": "Spanish",    "locale": "Spanish-language"},
+    {"code": "pt", "name": "Portuguese", "locale": "Portuguese-language"},
+]
+VALID_LANG_CODES: set[str] = {l["code"] for l in LANGUAGES}
+
+# Exactly the tags your app supports
+ALLOWED_TAGS: set[str] = {
+    "addiction", "effects", "global", "medical",
+    "overview", "prevention", "risks", "treatment", "trends",
+}
+
+# 2 search topics per habit — kept lean to avoid excessive API calls
+HABIT_SEARCH_TOPICS: dict[str, list[str]] = {
+    "Tobacco":      ["cigarette smoking health risks", "tobacco addiction science"],
+    "Alcohol":      ["alcohol use disorder risks", "alcohol addiction effects"],
+    "Weed":         ["cannabis use health effects", "marijuana addiction risks"],
+    "Pills":        ["prescription pill abuse risks", "benzodiazepine addiction"],
+    "Opioids":      ["opioid addiction crisis", "opioid overdose risks"],
+    "Cocaine":      ["cocaine health effects", "cocaine addiction science"],
+    "Ecstasy":      ["MDMA ecstasy health risks", "ecstasy addiction effects"],
+    "Mushrooms":    ["psilocybin mushrooms risks", "magic mushrooms health effects"],
+    "Amphetamines": ["amphetamine addiction risks", "methamphetamine health effects"],
+    "LSD":          ["LSD acid health risks", "LSD psychological effects"],
+    "GHB":          ["GHB drug health risks", "GHB addiction effects"],
+    "Heroin":       ["heroin addiction health effects", "heroin overdose risks"],
+    "Gambling":     ["gambling addiction psychology", "problem gambling health effects"],
+}
+
+# Domains that earn a +0.5 quality-score bonus
+TRUSTED_DOMAINS: list[str] = [
+    # Global / English
     "apa.org", "who.int", "nih.gov", "pubmed.ncbi.nlm.nih.gov",
     "healthline.com", "mayoclinic.org", "psychologytoday.com",
     "nature.com", "sciencedirect.com", "ncbi.nlm.nih.gov",
+    # French
+    "inserm.fr", "ameli.fr", "has-sante.fr",
+    # German
+    "bzga.de", "dhs.de", "gesundheitsinformation.de",
+    # Spanish
+    "mscbs.gob.es", "fundacionsalud.org",
+    # Portuguese
+    "sns.gov.pt", "portaldasaude.pt", "fiocruz.br",
 ]
 
 # ─── Anthropic client ──────────────────────────────────────────────────────────
@@ -38,28 +85,38 @@ MODEL = "claude-opus-4-5"
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
+def utc_now() -> datetime:
+    """Single source of truth for current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
+
 def load_guides() -> list[dict]:
     path = Path(GUIDES_FILE)
     if not path.exists():
         return []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    # Support both a plain array and a {"guides": [...]} wrapper
-    if isinstance(data, list):
-        return data
-    return data.get("guides", [])
+    return data.get("guides", data) if isinstance(data, dict) else data
 
 
 def save_guides(guides: list[dict]) -> None:
     path = Path(GUIDES_FILE)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "last_updated": datetime.utcnow().isoformat() + "Z",
+        "last_updated": utc_now().isoformat(),
         "guides": guides,
     }
-    with open(path, "w") as f:
-        json.dump(payload, f, indent=2)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
     print(f"✅ Saved {len(guides)} guides to {GUIDES_FILE}")
+
+
+def next_id(existing: list[dict]) -> str:
+    """Return the next sequential integer ID as a string (e.g. '1', '2', …)."""
+    if not existing:
+        return "1"
+    numeric = [int(g["id"]) for g in existing if str(g.get("id", "")).isdigit()]
+    return str(max(numeric) + 1) if numeric else "1"
 
 
 def is_url_live(url: str) -> bool:
@@ -78,20 +135,33 @@ def is_trusted(url: str) -> bool:
     return any(domain in url for domain in TRUSTED_DOMAINS)
 
 
+def strip_fence(raw: str) -> str:
+    """Remove markdown code fences from a Claude response."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)
+    return raw.strip()
+
+
 def claude(prompt: str, system: str = "") -> str:
-    """Simple Claude call, returns text."""
-    messages = [{"role": "user", "content": prompt}]
-    kwargs = {"model": MODEL, "max_tokens": 4096, "messages": messages}
+    """Plain Claude call — returns the first text block."""
+    kwargs: dict = {
+        "model": MODEL,
+        "max_tokens": 4096,
+        "messages": [{"role": "user", "content": prompt}],
+    }
     if system:
         kwargs["system"] = system
     resp = client.messages.create(**kwargs)
-    return resp.content[0].text
+    return resp.content.text
 
 
 def claude_with_search(prompt: str, system: str = "") -> str:
-    """Claude call with web search tool enabled."""
+    """Claude call with web_search tool; drives the agentic loop automatically."""
     messages = [{"role": "user", "content": prompt}]
-    kwargs = {
+    kwargs: dict = {
         "model": MODEL,
         "max_tokens": 4096,
         "messages": messages,
@@ -100,23 +170,17 @@ def claude_with_search(prompt: str, system: str = "") -> str:
     if system:
         kwargs["system"] = system
 
-    # Agentic loop — Claude may call the search tool multiple times
     while True:
         resp = client.messages.create(**kwargs)
         if resp.stop_reason == "end_turn":
-            texts = [b.text for b in resp.content if hasattr(b, "text")]
-            return "\n".join(texts)
+            return "\n".join(b.text for b in resp.content if hasattr(b, "text"))
         if resp.stop_reason == "tool_use":
-            # Append assistant turn + tool results, then continue
             messages.append({"role": "assistant", "content": resp.content})
-            tool_results = []
-            for block in resp.content:
-                if block.type == "tool_use":
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": "",   # SDK handles actual search
-                    })
+            tool_results = [
+                {"type": "tool_result", "tool_use_id": b.id, "content": ""}
+                for b in resp.content
+                if b.type == "tool_use"
+            ]
             messages.append({"role": "user", "content": tool_results})
             kwargs["messages"] = messages
         else:
@@ -126,34 +190,51 @@ def claude_with_search(prompt: str, system: str = "") -> str:
 # ─── Step 1: Discover ──────────────────────────────────────────────────────────
 
 def discover_new_articles(existing_urls: set[str]) -> list[dict]:
+    """
+    Search for native-language articles for every habit × language combination.
+    Each candidate dict carries: url, title, description, source, author,
+    language, habits, estimatedReadingMinutes.
+    """
     print("\n🔍 Step 1: Discovering new articles...")
-    all_found = []
+    all_found: list[dict] = []
 
-    for topic in SEARCH_TOPICS:
-        print(f"   Searching: {topic}")
-        prompt = f"""Search the web for high-quality articles about: "{topic}"
-        
-Find 3-5 relevant, credible articles published in the last 2 years.
-Return ONLY a JSON array (no markdown, no explanation) like:
+    for lang in LANGUAGES:
+        for habit in HABITS:
+            for topic in HABIT_SEARCH_TOPICS[habit]:
+                print(f"   [{lang['code']}] {habit} — {topic}")
+                prompt = f"""Search the web for high-quality {lang['locale']} articles about: "{topic}"
+
+The article MUST be written entirely in {lang['name']} (language code: {lang['code']}).
+Prefer reputable health, medical, or academic sources.
+Find 2–3 relevant, credible articles published in the last 3 years.
+
+Return ONLY a valid JSON array — no markdown, no explanation:
 [
-  {{"url": "https://...", "title": "...", "summary": "one sentence", "source": "domain.com"}},
-  ...
+  {{
+    "url": "https://...",
+    "title": "Article title in {lang['name']}",
+    "description": "1–2 sentence summary written in {lang['name']}",
+    "source": "Publisher or organisation name",
+    "author": null,
+    "language": "{lang['code']}",
+    "habits": ["{habit}"],
+    "estimatedReadingMinutes": 5
+  }}
 ]
 
 Exclude these already-known URLs: {list(existing_urls)[:20]}
 """
-        try:
-            raw = claude_with_search(prompt)
-            # Strip any accidental markdown fences
-            raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-            found = json.loads(raw)
-            all_found.extend(found)
-        except Exception as e:
-            print(f"   ⚠️  Search failed for '{topic}': {e}")
+                try:
+                    raw = claude_with_search(prompt)
+                    found = json.loads(strip_fence(raw))
+                    if isinstance(found, list):
+                        all_found.extend(found)
+                except Exception as e:
+                    print(f"   ⚠️  Search failed [{lang['code']}] '{topic}': {e}")
 
     # Deduplicate by URL
     seen = set(existing_urls)
-    unique = []
+    unique: list[dict] = []
     for item in all_found:
         url = item.get("url", "")
         if url and url not in seen:
@@ -163,25 +244,29 @@ Exclude these already-known URLs: {list(existing_urls)[:20]}
     print(f"   Found {len(unique)} new candidate articles")
     return unique
 
-# ─── Step 2: Validate ─────────────────────────────────────────────────────────
+# ─── Step 2: Validate new articles ────────────────────────────────────────────
 
-def validate_article(article: dict) -> dict:
+def _score_article(article: dict) -> dict:
+    """Ask Claude to score quality on 4 dimensions; returns the parsed scores dict."""
     url = article["url"]
+    habit = (article.get("habits") or ["Unknown"])
     trusted = is_trusted(url)
 
-    prompt = f"""You are a medical/health content quality reviewer for a habit-tracking app.
+    prompt = f"""You are a health content quality reviewer for a habit-tracking app.
 
 Evaluate this article for inclusion in the app's resource library:
 URL: {url}
 Title: {article.get('title', 'Unknown')}
-Summary: {article.get('summary', '')}
+Description: {article.get('description', '')}
+Language: {article.get('language', 'en')}
+Habit category: {habit}
 Trusted source: {trusted}
 
-Score it 1-10 on each dimension (10 = best):
-- credibility: Is the source reputable? (publisher, author credentials)
-- accuracy: Are claims evidence-based? No misinformation?
-- relevance: Does it relate to bad habits, risks, behaviour change, health?
-- recency: Is it current (prefer last 2 years)?
+Score 1–10 on each dimension (10 = best):
+- credibility : Is the source reputable? (publisher, author credentials)
+- accuracy    : Are claims evidence-based? No misinformation?
+- relevance   : Does it relate to the habit, its risks, or behaviour change?
+- recency     : Is it current (prefer last 3 years)?
 
 Return ONLY JSON, no markdown:
 {{
@@ -189,31 +274,24 @@ Return ONLY JSON, no markdown:
   "accuracy": 0,
   "relevance": 0,
   "recency": 0,
-  "overall": 0.0,
-  "verdict": "approved" or "rejected",
-  "flags": ["list any concerns"],
-  "rejection_reason": "only if rejected"
+  "flags": [],
+  "rejection_reason": ""
 }}
 """
     try:
-        raw = claude(prompt)
-        raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-        scores = json.loads(raw)
+        scores = json.loads(strip_fence(claude(prompt)))
         overall = (
             scores["credibility"] + scores["accuracy"] +
             scores["relevance"] + scores["recency"]
         ) / 4.0
-        scores["overall"] = round(overall, 2)
-        # Trusted domains get a +0.5 bonus
-        if trusted:
-            scores["overall"] = min(10.0, scores["overall"] + 0.5)
+        scores["overall"] = round(min(10.0, overall + (0.5 if trusted else 0.0)), 2)
         scores["verdict"] = "approved" if scores["overall"] >= VALIDATION_THRESHOLD else "rejected"
         return scores
     except Exception as e:
         return {
             "credibility": 0, "accuracy": 0, "relevance": 0, "recency": 0,
-            "overall": 0, "verdict": "rejected",
-            "flags": [], "rejection_reason": f"Validation error: {e}"
+            "overall": 0.0, "verdict": "rejected",
+            "flags": [], "rejection_reason": f"Validation error: {e}",
         }
 
 
@@ -224,25 +302,25 @@ def validate_new_articles(candidates: list[dict]) -> tuple[list[dict], list[dict
     for article in candidates:
         url = article["url"]
         if not is_url_live(url):
-            print(f"   ❌ Dead link skipped: {url}")
+            print(f"   ❌ Dead link: {url}")
             rejected.append({**article, "rejection_reason": "URL not accessible"})
             continue
 
-        scores = validate_article(article)
-        article["validation"] = scores
+        scores = _score_article(article)
+        article["_validation"] = scores  # internal use only — not written to JSON
 
         if scores["verdict"] == "approved":
             print(f"   ✅ Approved ({scores['overall']:.1f}): {article.get('title', url)}")
             approved.append(article)
         else:
-            reason = scores.get("rejection_reason", "Below quality threshold")
+            reason = scores.get("rejection_reason") or "Below quality threshold"
             print(f"   ❌ Rejected ({scores['overall']:.1f}): {article.get('title', url)} — {reason}")
             rejected.append(article)
 
     print(f"   Approved: {len(approved)} | Rejected: {len(rejected)}")
     return approved, rejected
 
-# ─── Step 3: Audit existing ───────────────────────────────────────────────────
+# ─── Step 3: Audit existing guides ────────────────────────────────────────────
 
 def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     print("\n✅ Step 3: Auditing existing guides...")
@@ -251,110 +329,235 @@ def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     for guide in guides:
         url = guide.get("url", "")
 
-        # Check if still live
         if not is_url_live(url):
-            print(f"   🗑️  Removed (dead link): {url}")
-            guide["removal_reason"] = "URL no longer accessible"
+            print(f"   🗑️  Dead link removed: {url}")
+            guide["_removal_reason"] = "URL no longer accessible"
             removed.append(guide)
             continue
 
-        # Ask Claude if it's still relevant and accurate
         prompt = f"""Review this existing article in a habit-tracking app's resource library.
 URL: {url}
 Title: {guide.get('title', '')}
-Added: {guide.get('added_date', 'unknown')}
+Language: {guide.get('language', 'en')}
+Habits: {guide.get('habits', [])}
 
-Is this article still accurate, relevant, and up to date as of {datetime.utcnow().strftime('%B %Y')}?
-Consider: outdated research, retracted studies, superseded guidelines, broken/redirected domains.
+Is this article still accurate, relevant, and up to date as of {utc_now().strftime('%B %Y')}?
+Consider: outdated research, retracted studies, superseded guidelines, defunct domains.
 
 Return ONLY JSON:
-{{"keep": true or false, "reason": "brief explanation"}}
+{{"keep": true, "reason": "brief explanation"}}
 """
         try:
-            raw = claude(prompt)
-            raw = raw.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-            result = json.loads(raw)
+            result = json.loads(strip_fence(claude(prompt)))
             if result.get("keep", True):
                 kept.append(guide)
             else:
-                guide["removal_reason"] = result.get("reason", "Outdated or irrelevant")
-                print(f"   🗑️  Removed ({result['reason']}): {url}")
+                guide["_removal_reason"] = result.get("reason", "Outdated or irrelevant")
+                print(f"   🗑️  Removed ({guide['_removal_reason']}): {url}")
                 removed.append(guide)
         except Exception:
-            kept.append(guide)  # Keep on error — safe default
+            kept.append(guide)  # keep on parse failure — safe default
 
     print(f"   Kept: {len(kept)} | Removed: {len(removed)}")
     return kept, removed
 
-# ─── Step 4: Build & validate JSON ────────────────────────────────────────────
+# ─── Step 4: Enrich tags ──────────────────────────────────────────────────────
 
-def build_guide_entry(article: dict) -> dict:
+def enrich_tags(article: dict) -> list[str]:
+    """
+    Assign 1–4 tags from ALLOWED_TAGS for an article.
+    Falls back to ["overview"] on any error.
+    """
+    prompt = f"""Select 1 to 4 relevant tags for this article from EXACTLY this set:
+{sorted(ALLOWED_TAGS)}
+
+Title: {article.get('title', '')}
+Description: {article.get('description', '')}
+Habits: {article.get('habits', [])}
+
+Return ONLY a JSON array of strings, no markdown:
+["tag1", "tag2"]
+"""
+    try:
+        tags = json.loads(strip_fence(claude(prompt)))
+        valid = [t for t in tags if t in ALLOWED_TAGS]
+        return valid if valid else ["overview"]
+    except Exception:
+        return ["overview"]
+
+# ─── Step 5: Build guide entry ────────────────────────────────────────────────
+
+def build_guide_entry(article: dict, guide_id: str) -> dict:
+    """
+    Construct a Guide dict matching the Swift Guide model exactly.
+    Internal keys prefixed with _ are stripped here.
+    """
+    reading_minutes: int | None = None
+    try:
+        val = article.get("estimatedReadingMinutes")
+        if val is not None:
+            reading_minutes = int(val)
+    except (TypeError, ValueError):
+        pass
+
     return {
-        "url": article["url"],
+        "id": guide_id,
         "title": article.get("title", ""),
-        "summary": article.get("summary", ""),
+        "description": article.get("description") or None,
+        "language": article.get("language", "en"),
+        "estimatedReadingMinutes": reading_minutes,
         "source": article.get("source", ""),
-        "added_date": datetime.utcnow().strftime("%Y-%m-%d"),
-        "validation_score": article.get("validation", {}).get("overall", 0),
-        "tags": [],   # You can extend Claude to generate tags too
+        "url": article["url"],
+        "author": article.get("author") or None,
+        "habits": article.get("habits") or None,
+        "tags": enrich_tags(article),
     }
 
+# ─── Schema validation & repair ───────────────────────────────────────────────
 
-def validate_json_schema(guides: list[dict]) -> bool:
-    required_keys = {"url", "title", "summary", "source", "added_date"}
-    for guide in guides:
-        if not required_keys.issubset(guide.keys()):
-            return False
-        if not guide["url"].startswith("http"):
-            return False
-    return True
+REQUIRED_KEYS: set[str] = {"id", "title", "description", "language", "source", "url", "habits"}
+
+
+def validate_json_schema(guides: list[dict]) -> tuple[bool, list[str]]:
+    errors: list[str] = []
+    for i, guide in enumerate(guides):
+        gid = guide.get("id", "?")
+        missing = REQUIRED_KEYS - guide.keys()
+        if missing:
+            errors.append(f"Guide[{i}] id={gid} missing keys: {missing}")
+            continue
+        if not str(guide.get("url", "")).startswith("http"):
+            errors.append(f"Guide[{i}] id={gid} invalid URL: '{guide.get('url')}'")
+        if guide.get("language") not in VALID_LANG_CODES:
+            errors.append(f"Guide[{i}] id={gid} invalid language: '{guide.get('language')}'")
+        bad_tags = [t for t in (guide.get("tags") or []) if t not in ALLOWED_TAGS]
+        if bad_tags:
+            errors.append(f"Guide[{i}] id={gid} invalid tags: {bad_tags}")
+    return len(errors) == 0, errors
+
+
+def repair_guides_with_claude(guides: list[dict], errors: list[str]) -> list[dict]:
+    MAX_ATTEMPTS = 2
+    current = guides
+
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        print(f"\n🔧 Repair attempt {attempt}/{MAX_ATTEMPTS}...")
+        prompt = f"""The following JSON array of guide objects failed schema validation.
+
+Rules:
+- Required keys for every entry: {sorted(REQUIRED_KEYS)}
+- Every "url" must start with "http"
+- "language" must be one of: {sorted(VALID_LANG_CODES)}
+- Every value in "tags" must be one of: {sorted(ALLOWED_TAGS)}
+- Preserve the "id" field of every entry unchanged
+
+Errors:
+{json.dumps(errors, indent=2)}
+
+Data to fix:
+{json.dumps(current, indent=2, ensure_ascii=False)}
+
+Return ONLY the corrected JSON array — no markdown, no explanation.
+Use "" for missing string fields. Remove entries whose URL cannot be fixed.
+"""
+        try:
+            repaired = json.loads(strip_fence(claude(prompt)))
+            valid, new_errors = validate_json_schema(repaired)
+            if valid:
+                print(f"   ✅ Repair succeeded on attempt {attempt}")
+                return repaired
+            print(f"   ⚠️  Still invalid after attempt {attempt}: {new_errors}")
+            errors, current = new_errors, repaired
+        except Exception as e:
+            print(f"   ❌ Repair attempt {attempt} raised exception: {e}")
+
+    print("   ❌ All repair attempts exhausted — saving last best effort.")
+    return current
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def run() -> dict:
-    print("🚀 Starting Guides Agent")
-    print("=" * 50)
+    print("🚀 Starting Habit Guides Agent")
+    print("=" * 52)
 
     existing_guides = load_guides()
-    existing_urls = {g["url"] for g in existing_guides}
+    existing_urls: set[str] = {g["url"] for g in existing_guides}
     print(f"📚 Loaded {len(existing_guides)} existing guides")
 
-    # Step 1 — Discover
+    # ── 1. Discover ───────────────────────────────────────────────────────────
     candidates = discover_new_articles(existing_urls)
 
-    # Step 2 — Validate new
+    # ── 2. Validate new ───────────────────────────────────────────────────────
     approved_new, rejected_new = validate_new_articles(candidates)
 
-    # Step 3 — Audit existing
+    # ── 3. Audit existing ─────────────────────────────────────────────────────
     kept_existing, removed_existing = audit_existing_guides(existing_guides)
 
-    # Step 4 — Merge & save
-    new_entries = [build_guide_entry(a) for a in approved_new]
+    # ── 4. Build new entries with sequential IDs ──────────────────────────────
+    new_entries: list[dict] = []
+    id_pool = kept_existing.copy()          # grow alongside new entries for correct next_id
+    for article in approved_new:
+        guide_id = next_id(id_pool)
+        entry = build_guide_entry(article, guide_id)
+        new_entries.append(entry)
+        id_pool.append(entry)
+
     final_guides = kept_existing + new_entries
 
-    if not validate_json_schema(final_guides):
-        raise ValueError("❌ JSON schema validation failed!")
+    # ── 5. Schema validation with auto-repair ─────────────────────────────────
+    valid, errors = validate_json_schema(final_guides)
+    if not valid:
+        print(f"\n⚠️  Schema validation failed ({len(errors)} error(s)):")
+        for err in errors:
+            print(f"   • {err}")
+        final_guides = repair_guides_with_claude(final_guides, errors)
+
+        valid, errors = validate_json_schema(final_guides)
+        if not valid:
+            raise ValueError(
+                "❌ JSON schema still invalid after repair attempts!\n" + "\n".join(errors)
+            )
 
     save_guides(final_guides)
 
+    # ── Summary ───────────────────────────────────────────────────────────────
+    lang_counts = {l["code"]: 0 for l in LANGUAGES}
+    habit_counts = {h: 0 for h in HABITS}
+    for g in final_guides:
+        lc = g.get("language", "")
+        if lc in lang_counts:
+            lang_counts[lc] += 1
+        for h in (g.get("habits") or []):
+            if h in habit_counts:
+                habit_counts[h] += 1
+
     summary = {
-        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "date": utc_now().strftime("%Y-%m-%d"),
         "total_guides": len(final_guides),
         "new_added": len(new_entries),
         "removed": len(removed_existing),
         "rejected_new": len(rejected_new),
+        "guides_by_language": lang_counts,
+        "guides_by_habit": habit_counts,
         "removed_details": [
-            {"url": g["url"], "reason": g.get("removal_reason", "")}
+            {"url": g["url"], "reason": g.get("_removal_reason", "")}
             for g in removed_existing
         ],
         "new_details": [
-            {"url": g["url"], "title": g.get("title", ""), "score": g.get("validation", {}).get("overall", 0)}
+            {
+                "id": g["id"],
+                "url": g["url"],
+                "title": g.get("title", ""),
+                "language": g.get("language", ""),
+                "habits": g.get("habits", []),
+                "tags": g.get("tags", []),
+            }
             for g in new_entries
         ],
     }
 
     print("\n📊 Summary:")
-    print(json.dumps(summary, indent=2))
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
     return summary
 
 
