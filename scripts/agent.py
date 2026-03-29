@@ -1,30 +1,30 @@
-“””
+"""
 Habit Tracker Guides Agent
 Triggered every other week by an external scheduler (e.g. GitHub Actions cron).
 Run directly with: python habit_guides_agent.py
 
 Pipeline:
 
-1. Discover  — broad open-ended search per habit × language
-1. Coverage  — for any habit × language with <MIN_GUIDES_PER_COMBO guides, run a
+1. Discover  – broad open-ended search per habit × language
+1. Coverage  – for any habit × language with <MIN_GUIDES_PER_COMBO guides, run a
    targeted top-up search so every combo has baseline content
-1. Validate  — URL liveness check + value judgement by Claude (with page snippet)
-1. Audit     — moderate liveness check: remove only on GET 404/410
-1. Enrich    — assign tags via Claude; can propose new tags (capped at MAX_TAGS total)
-1. Tag hygiene — normalise plural/singular variants; merge near-synonym tags
-1. Save      — merge, validate schema (with auto-repair), persist JSON
+1. Validate  – URL liveness check + value judgement by Claude (with page snippet)
+1. Audit     – moderate liveness check: remove only on GET 404/410
+1. Enrich    – assign tags via Claude; can propose new tags (capped at MAX_TAGS total)
+1. Tag hygiene – normalise plural/singular variants; merge near-synonym tags
+1. Save      – merge, validate schema (with auto-repair), persist JSON
 
 Key settings:
 
 - VALIDATION_THRESHOLD  : 6.0
 - TRUSTED_DOMAIN_BONUS  : +1.0
-- Dead-link rule        : moderate — GET 404 or 410 only
+- Dead-link rule        : moderate – GET 404 or 410 only
 - MIN_GUIDES_PER_COMBO  : 2    (top-up search fires when below this)
 - MAX_TAGS              : 15   (hard cap on total distinct tags in the registry)
 - Snippet fetch         : yes, before scoring
 - Near-duplicate dedup  : URL normalisation + Jaccard title similarity
 - last_checked stamp    : written to every guide on each run
-  “””
+  """
 
 import os
 import re
@@ -54,7 +54,7 @@ MAX_TAGS = 15
 DEAD_STATUS_CODES      = {404, 410}
 TRANSIENT_STATUS_CODES = {429, 451, 500, 502, 503, 504}
 
-# Seed tags — the registry starts here on a fresh install.
+# Seed tags – the registry starts here on a fresh install.
 
 # Loaded from guides.json on subsequent runs so it can grow/merge over time.
 
@@ -172,7 +172,7 @@ url = re.sub(r’?.*$’, ‘’, url)
 return url
 
 def titles_are_similar(a: str, b: str, threshold: float = 0.75) -> bool:
-“”“Jaccard similarity on word sets — catches reworded duplicates.”””
+“”“Jaccard similarity on word sets – catches reworded duplicates.”””
 wa = set(re.findall(r’\w+’, a.lower()))
 wb = set(re.findall(r’\w+’, b.lower()))
 if not wa or not wb:
@@ -201,7 +201,7 @@ Returns one of: "alive" | "dead" | "transient"
 "transient" → any other non-2xx/3xx (5xx, 429, 451, network error, timeout)
 "alive"     → GET returns < 400
 
-HEAD is skipped entirely — it is unreliable for dead-link detection
+HEAD is skipped entirely -- it is unreliable for dead-link detection
 (many servers return 405 or wrong codes on HEAD).
 """
 try:
@@ -299,24 +299,24 @@ for lang in LANGUAGES:
         prompt = f"""Search the web for high-quality {lang['locale']} articles about "{habit}"
 ```
 
-as a substance or behaviour — covering any relevant angle such as health effects,
+as a substance or behaviour – covering any relevant angle such as health effects,
 addiction, risks, treatment, prevention, or science.
 
 The article MUST be written entirely in {lang[‘name’]} (language code: {lang[‘code’]}).
-Sources do NOT need to be from official or government bodies — any trustworthy,
+Sources do NOT need to be from official or government bodies – any trustworthy,
 accurate, and informative health or science source is acceptable (blogs, clinics,
 NGOs, reputable news outlets, universities, etc.).
 
 Find up to 3 credible articles. Include an article if it genuinely provides
-value to someone trying to understand or manage this habit. Be generous — prefer
+value to someone trying to understand or manage this habit. Be generous – prefer
 to include borderline-good articles rather than returning an empty list.
 
-Return ONLY a valid JSON array — no markdown, no explanation:
+Return ONLY a valid JSON array – no markdown, no explanation:
 [
 {{
 “url”: “https://…”,
 “title”: “Article title in {lang[‘name’]}”,
-“description”: “1–2 sentence summary in {lang[‘name’]}”,
+“description”: “1-2 sentence summary in {lang[‘name’]}”,
 “source”: “Publisher name”,
 “author”: null,
 “language”: “{lang[‘code’]}”,
@@ -391,7 +391,7 @@ if not gaps:
 return []
 
 ```
-print(f"\n🎯 Step 2: Coverage top-up — {len(gaps)} gap(s) to fill...")
+print(f"\n🎯 Step 2: Coverage top-up -- {len(gaps)} gap(s) to fill...")
 all_known = existing_guides + already_found
 known_norm: set[str] = {normalise_url(g.get("url", "")) for g in all_known}
 topup_candidates: list[dict] = []
@@ -403,25 +403,25 @@ for habit, lang in gaps:
         and habit in (g.get("habits") or [])
     )
     needed = MIN_GUIDES_PER_COMBO - current_count
-    print(f"   [{lang['code']}] {habit} — need {needed} more article(s)")
+    print(f"   [{lang['code']}] {habit} -- need {needed} more article(s)")
 
     prompt = f"""I urgently need {needed} {lang['locale']} article(s) about "{habit}".
 ```
 
 This is a coverage gap: we have almost no content for this combination.
-Please find ANY trustworthy, accurate {lang[‘name’]}-language source — government,
-NGO, clinic, university, reputable news outlet, health blog — that covers
+Please find ANY trustworthy, accurate {lang[‘name’]}-language source – government,
+NGO, clinic, university, reputable news outlet, health blog – that covers
 “{habit}” in terms of health effects, risks, addiction, treatment, or prevention.
 
 The article MUST be primarily written in {lang[‘name’]} (language code: {lang[‘code’]}).
-Be flexible with source type — accuracy and usefulness matter more than prestige.
+Be flexible with source type – accuracy and usefulness matter more than prestige.
 
 Return ONLY a valid JSON array (no markdown):
 [
 {{
 “url”: “https://…”,
 “title”: “Title in {lang[‘name’]}”,
-“description”: “1–2 sentence summary in {lang[‘name’]}”,
+“description”: “1-2 sentence summary in {lang[‘name’]}”,
 “source”: “Publisher name”,
 “author”: null,
 “language”: “{lang[‘code’]}”,
@@ -473,14 +473,14 @@ Habit: {(article.get(‘habits’) or [’?’])}
 Trusted domain: {trusted}
 Page snippet: {snippet or ‘(could not fetch)’}
 
-Score 1–10 on each dimension:
+Score 1-10 on each dimension:
 
 - credibility : Reputable source, author credentials, cites evidence
 - accuracy    : Evidence-based, factually correct, no misinformation
 - relevance   : Useful to someone managing or understanding this habit
 - recency     : Prefer last 3 years; older is fine if still accurate
 
-Be generous on borderline cases — a score of 6 is acceptable for a solid
+Be generous on borderline cases – a score of 6 is acceptable for a solid
 but not exceptional article from a non-official source.
 
 Return ONLY JSON (no markdown):
@@ -533,7 +533,7 @@ for article in candidates:
         continue
     if result == "transient":
         print(f"   ⏳ Transient error (skipping, not rejecting): {url}")
-        # Don't add — but don't permanently reject either; just skip this run
+        # Don't add -- but don't permanently reject either; just skip this run
         continue
 
     scores = _score_article(article)
@@ -544,7 +544,7 @@ for article in candidates:
         approved.append(article)
     else:
         reason = scores.get("rejection_reason") or "Below quality threshold"
-        print(f"   ❌ ({scores['overall']:.1f}): {article.get('title', url)} — {reason}")
+        print(f"   ❌ ({scores['overall']:.1f}): {article.get('title', url)} -- {reason}")
         rejected.append(article)
 
 print(f"   Approved: {len(approved)} | Rejected: {len(rejected)}")
@@ -624,17 +624,17 @@ for g in guides:
         if t in usage:
             usage[t] += 1
 
-# Sort by usage ascending — drop least-used first
+# Sort by usage ascending -- drop least-used first
 sorted_tags = sorted(registry, key=lambda t: usage.get(t, 0))
 to_drop = len(registry) - MAX_TAGS
 dropped = set(sorted_tags[:to_drop])
-print(f"   🏷️  Registry over cap — dropping {dropped}")
+print(f"   🏷️  Registry over cap -- dropping {dropped}")
 return registry - dropped
 ```
 
 def enrich_tags(article: dict, tag_registry: set[str]) -> tuple[list[str], set[str]]:
 “””
-Ask Claude to assign 1–4 tags from the current registry, or propose a new
+Ask Claude to assign 1-4 tags from the current registry, or propose a new
 one if none fit well. Returns (tags_for_this_article, updated_registry).
 “””
 prompt = f””“You are tagging a health article for a habit-tracking app.
@@ -649,14 +649,14 @@ Habits     : {article.get(‘habits’, [])}
 
 Instructions:
 
-1. Pick 1–4 tags from the registry that best describe this article.
+1. Pick 1-4 tags from the registry that best describe this article.
 1. If and ONLY IF no existing tag fits at all, you may propose ONE new tag.
 - New tags must be a single lowercase word (no spaces or hyphens).
 - Do not propose a new tag if an existing one is even a rough fit.
-1. Apply these merge rules before returning — rewrite any of these to their canonical form:
+1. Apply these merge rules before returning – rewrite any of these to their canonical form:
    {json.dumps(TAG_MERGE_MAP, indent=2)}
 
-Return ONLY JSON — no markdown:
+Return ONLY JSON – no markdown:
 {{
 “tags”: [“tag1”, “tag2”],
 “new_tag”: null
@@ -767,7 +767,7 @@ Errors to fix:
 Data:
 {json.dumps(current, indent=2, ensure_ascii=False)}
 
-Return ONLY the corrected JSON array — no markdown, no explanation.
+Return ONLY the corrected JSON array – no markdown, no explanation.
 Use “” for missing string fields. Remove entries with unfixable URLs.
 “””
 try:
@@ -782,7 +782,7 @@ except Exception as e:
 print(f”   ❌ Repair attempt {attempt} raised exception: {e}”)
 
 ```
-print("   ❌ All repair attempts exhausted — saving last best effort.")
+print("   ❌ All repair attempts exhausted -- saving last best effort.")
 return current
 ```
 
@@ -825,7 +825,7 @@ for article in approved_new:
     new_entries.append(entry)
     id_pool.append(entry)
 
-# ── 6. Tag hygiene — prune registry if over cap ───────────────────────────
+# ── 6. Tag hygiene -- prune registry if over cap ───────────────────────────
 final_guides = kept_existing + new_entries
 tag_registry = prune_registry(tag_registry, final_guides)
 
