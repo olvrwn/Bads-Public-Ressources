@@ -11,7 +11,6 @@ on:
 permissions:
   contents: write       # needed to push branches
   pull-requests: write  # needed to create PRs
-  workflows: write      # needed to modify .github/workflows/ files
 
 jobs:
   update-guides:
