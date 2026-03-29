@@ -11,6 +11,7 @@ on:
 permissions:
   contents: write       # needed to push branches
   pull-requests: write  # needed to create PRs
+  workflows: write      # needed to modify .github/workflows/ files
 
 jobs:
   update-guides:
@@ -82,6 +83,7 @@ jobs:
           git config user.email "guides-bot@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add guides.json
+          git reset HEAD .github/   # safeguard: never stage workflow files
           git diff --cached --quiet && echo "no_changes=true" >> $GITHUB_OUTPUT || true
           git commit -m "chore: weekly guides update $(date +%Y-%m-%d)" || true
           git push origin "$BRANCH"
