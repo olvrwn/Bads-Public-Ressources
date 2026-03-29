@@ -44,6 +44,9 @@ def load_guides() -> list[dict]:
         return []
     with open(path) as f:
         data = json.load(f)
+    # Support both a plain array and a {"guides": [...]} wrapper
+    if isinstance(data, list):
+        return data
     return data.get("guides", [])
 
 
