@@ -8,21 +8,27 @@ Pipeline:
   1. Load      -- read guides.json + config.json
   2. Audit     -- parallel liveness check on all existing guides (GET, follow redirects)
                   Dead = 404/410 after redirects. Transient errors = keep.
-  3. Discover  -- gap-aware parallel search via Claude web_search tool
+  3. Discover  -- gap-aware serial search via Claude web_search tool
                   Gaps (<MIN_GUIDES_PER_COMBO) get a more aggressive prompt (4 results)
                   Covered combos get a light refresh prompt (2 results)
-                  Max 3 concurrent Claude calls (Anthropic free tier)
+                  Serial with 2s throttle to respect Anthropic free tier limits
   4. Validate  -- two-gate quality check:
                   Gate 1: domain tier (Tier1=9.0, Tier2=7.5, auto-pass)
                   Gate 2: unknown domains → Claude 3-binary-check on fetched snippet
   5. Enrich    -- assign tags via Claude haiku; propose new tags (capped at max_tags)
   6. Save      -- merge, schema-validate, persist flat JSON array
   7. Summary   -- write summary.json for GitHub Actions workflow
+
+Rate limits (Anthropic free tier):
+  - 30,000 input tokens / minute
+  - 50 requests / minute
+  → MAX_SEARCH_WORKERS = 1 with 2s sleep between calls (~30 req/min)
 """
 
 import os
 import re
 import json
+import time
 import httpx
 import anthropic
 
@@ -62,8 +68,12 @@ GUIDES_FILE = "guides.json"
 MODEL_SEARCH = "claude-sonnet-4-5"
 MODEL_FAST   = "claude-haiku-4-5"
 
-MAX_SEARCH_WORKERS   = 3   # Anthropic free tier: keep low to avoid 429s
-MAX_LIVENESS_WORKERS = 20  # httpx only, safe to parallelise heavily
+# Anthropic free tier: serial search with throttle to avoid 429 cascade.
+# Each claude-sonnet search does multiple internal tool-use round trips,
+# easily hitting the 30k token/min or 50 req/min ceiling when parallelised.
+MAX_SEARCH_WORKERS   = 1
+MAX_LIVENESS_WORKERS = 20  # httpx only — safe to parallelise heavily
+SEARCH_THROTTLE_SECS = 2   # sleep between search calls
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
@@ -114,7 +124,7 @@ def titles_are_similar(a: str, b: str, threshold: float = 0.75) -> bool:
 
 
 def is_duplicate(candidate: dict, existing: list[dict]) -> bool:
-    norm = normalise_url(candidate.get("url", ""))
+    norm  = normalise_url(candidate.get("url", ""))
     title = candidate.get("title", "")
     for g in existing:
         if normalise_url(g.get("url", "")) == norm:
@@ -153,9 +163,9 @@ def fetch_snippet(url: str, max_chars: int = 1000) -> str:
 def claude_fast(prompt: str, system: str = "") -> str:
     """Single-turn Claude haiku call for scoring / tagging."""
     kwargs: dict = {
-        "model": MODEL_FAST,
+        "model":     MODEL_FAST,
         "max_tokens": 1024,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages":  [{"role": "user", "content": prompt}],
     }
     if system:
         kwargs["system"] = system
@@ -167,13 +177,14 @@ def claude_search(prompt: str, system: str = "") -> str:
     """
     Claude sonnet call with web_search tool.
     Runs the tool-use loop until end_turn, then returns all text blocks joined.
+    Guards against b.text being a non-string (can happen with web_search blocks).
     """
     messages = [{"role": "user", "content": prompt}]
     kwargs: dict = {
-        "model": MODEL_SEARCH,
+        "model":     MODEL_SEARCH,
         "max_tokens": 4096,
-        "messages": messages,
-        "tools": [{"type": "web_search_20250305", "name": "web_search"}],
+        "messages":  messages,
+        "tools":     [{"type": "web_search_20250305", "name": "web_search"}],
     }
     if system:
         kwargs["system"] = system
@@ -182,7 +193,8 @@ def claude_search(prompt: str, system: str = "") -> str:
         resp = client.messages.create(**kwargs)
         if resp.stop_reason == "end_turn":
             return "\n".join(
-                b.text for b in resp.content if hasattr(b, "text")
+                b.text for b in resp.content
+                if hasattr(b, "text") and isinstance(b.text, str)
             )
         if resp.stop_reason == "tool_use":
             messages.append({"role": "assistant", "content": resp.content})
@@ -221,7 +233,7 @@ def _check_liveness(guide: dict) -> tuple[dict, str]:
 def audit_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     """
     Parallel liveness check. Removes guides that definitively return 404/410
-    (after following all redirects). Transient errors = keep.
+    after following all redirects. Transient errors = keep.
     Returns (kept, removed).
     """
     gha_group(f"Step 1 · Audit — checking {len(guides)} existing guides")
@@ -249,7 +261,11 @@ def audit_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
 # Step 2 — Gap-aware discovery
 # ---------------------------------------------------------------------------
 
-def _compute_counts(guides: list[dict], habits: list[str], languages: list[dict]) -> dict:
+def _compute_counts(
+    guides: list[dict],
+    habits: list[str],
+    languages: list[dict],
+) -> dict[tuple[str, str], int]:
     """Count existing guides per (habit, lang_code) pair."""
     counts: dict[tuple[str, str], int] = {}
     for g in guides:
@@ -267,9 +283,12 @@ def _search_one_combo(
 ) -> list[dict]:
     """
     Single habit × language search. Returns a list of raw candidate dicts.
-    is_gap=True → ask for 4 articles with a more aggressive prompt.
+    is_gap=True  → ask for 4 articles with a more aggressive prompt.
     is_gap=False → ask for 2 articles for a light refresh.
+    Sleeps SEARCH_THROTTLE_SECS before the API call to respect free-tier limits.
     """
+    time.sleep(SEARCH_THROTTLE_SECS)
+
     count   = 4 if is_gap else 2
     urgency = (
         "This is a COVERAGE GAP — we have almost no content for this combination. "
@@ -309,7 +328,7 @@ Return ONLY a valid JSON array — no markdown, no explanation:
 If nothing genuinely valuable is found, return: []
 """
     try:
-        raw = claude_search(prompt)
+        raw    = claude_search(prompt)
         parsed = json.loads(strip_fence(raw))
         if isinstance(parsed, list):
             return [item for item in parsed if item.get("url")]
@@ -324,16 +343,16 @@ def discover_articles(
     config: dict,
 ) -> list[dict]:
     """
-    Gap-aware parallel discovery. One wave, no second pass.
-    Combos below MIN_GUIDES_PER_COMBO → aggressive (4 results).
+    Gap-aware discovery. One serial wave, no second pass.
+    Gaps (below MIN_GUIDES_PER_COMBO) → aggressive prompt (4 results).
     Covered combos → light refresh (2 results).
-    Max MAX_SEARCH_WORKERS concurrent Claude calls.
+    Serial with SEARCH_THROTTLE_SECS between calls to respect free-tier limits.
     """
     habits    = config["habits"]
     languages = config["languages"]
     min_combo = config.get("min_guides_per_combo", 3)
 
-    counts    = _compute_counts(existing_guides, habits, languages)
+    counts     = _compute_counts(existing_guides, habits, languages)
     known_urls: set[str] = {normalise_url(g["url"]) for g in existing_guides}
 
     tasks: list[tuple[str, dict, bool]] = []
@@ -348,13 +367,15 @@ def discover_articles(
 
     gha_group(
         f"Step 2 · Discover — {len(tasks)} combos "
-        f"({gap_count} gaps, {len(tasks)-gap_count} refreshes) "
-        f"| {MAX_SEARCH_WORKERS} parallel workers"
+        f"({gap_count} gaps, {len(tasks) - gap_count} refreshes) "
+        f"| serial with {SEARCH_THROTTLE_SECS}s throttle"
     )
 
     all_found: list[dict] = []
     seen_norm: set[str]   = set(known_urls)
 
+    # MAX_SEARCH_WORKERS=1 makes this effectively serial, but kept as a pool
+    # so it's trivial to increase once you upgrade to a paid tier.
     with ThreadPoolExecutor(max_workers=MAX_SEARCH_WORKERS) as pool:
         future_map = {
             pool.submit(_search_one_combo, habit, lang, is_gap, known_urls): (habit, lang, is_gap)
@@ -475,15 +496,13 @@ def validate_candidates(
         # Gate 1: trusted domain tier
         tier = _domain_tier(url, config)
         if tier == 1:
-            score_label = "Tier-1 auto-pass (9.0)"
             article["_score"] = 9.0
-            log(f"  ✅ {score_label}: {article.get('title', url)}")
+            log(f"  ✅ Tier-1 auto-pass (9.0): {article.get('title', url)}")
             approved.append(article)
             continue
         if tier == 2:
-            score_label = "Tier-2 auto-pass (7.5)"
             article["_score"] = 7.5
-            log(f"  ✅ {score_label}: {article.get('title', url)}")
+            log(f"  ✅ Tier-2 auto-pass (7.5): {article.get('title', url)}")
             approved.append(article)
             continue
 
@@ -550,7 +569,7 @@ Return ONLY valid JSON — no markdown:
 }}
 """
     try:
-        result = json.loads(strip_fence(claude_fast(prompt)))
+        result  = json.loads(strip_fence(claude_fast(prompt)))
         raw_tags: list[str] = result.get("tags") or []
         new_tag: str | None = result.get("new_tag") or None
 
@@ -606,16 +625,16 @@ def build_entry(
     )
 
     entry = {
-        "id":                     guide_id,
-        "title":                  article.get("title", ""),
-        "description":            article.get("description") or None,
-        "language":               article.get("language", "en"),
+        "id":                      guide_id,
+        "title":                   article.get("title", ""),
+        "description":             article.get("description") or None,
+        "language":                article.get("language", "en"),
         "estimatedReadingMinutes": reading_minutes,
-        "source":                 article.get("source", ""),
-        "url":                    article["url"],
-        "author":                 article.get("author") or None,
-        "habits":                 article.get("habits") or None,
-        "tags":                   tags,
+        "source":                  article.get("source", ""),
+        "url":                     article["url"],
+        "author":                  article.get("author") or None,
+        "habits":                  article.get("habits") or None,
+        "tags":                    tags,
     }
     return entry, updated_registry
 
@@ -623,14 +642,14 @@ def build_entry(
 # Step 6 — Schema validation
 # ---------------------------------------------------------------------------
 
-REQUIRED_KEYS = {"id", "title", "description", "language", "source", "url", "habits"}
+REQUIRED_KEYS   = {"id", "title", "description", "language", "source", "url", "habits"}
 VALID_LANG_CODES: set[str] = set()  # populated at runtime from config
 
 
 def validate_schema(guides: list[dict], tag_registry: set[str]) -> tuple[bool, list[str]]:
     errors: list[str] = []
     for i, guide in enumerate(guides):
-        gid = guide.get("id", "?")
+        gid     = guide.get("id", "?")
         missing = REQUIRED_KEYS - guide.keys()
         if missing:
             errors.append(f"Guide[{i}] id={gid} missing keys: {missing}")
@@ -706,11 +725,12 @@ def run() -> dict:
         for err in errors:
             gha_error(err)
         # Best-effort: drop invalid entries rather than saving corrupt data
+        before = len(final_guides)
         final_guides = [
             g for g in final_guides
             if not any(f"id={g.get('id', '?')}" in e for e in errors)
         ]
-        gha_warning(f"Dropped {len(kept_guides + new_entries) - len(final_guides)} invalid entries")
+        gha_warning(f"Dropped {before - len(final_guides)} invalid entries")
     gha_endgroup()
 
     # -- Step 7: Save ----------------------------------------------------------
@@ -731,7 +751,7 @@ def run() -> dict:
             if h in coverage:
                 coverage[h][lc] = coverage[h].get(lc, 0) + 1
 
-    min_combo = config.get("min_guides_per_combo", 3)
+    min_combo  = config.get("min_guides_per_combo", 3)
     still_gaps = [
         f"{h}/{lc}"
         for h in config["habits"]
@@ -741,14 +761,14 @@ def run() -> dict:
     ]
 
     summary = {
-        "date":                     utc_now().strftime("%Y-%m-%d"),
-        "total_guides":             len(final_guides),
-        "new_added":                len(new_entries),
-        "removed":                  len(removed_guides),
-        "rejected_new":             len(rejected),
-        "guides_by_language":       lang_counts,
-        "guides_by_habit":          habit_counts,
-        "coverage_below_minimum":   still_gaps,
+        "date":                   utc_now().strftime("%Y-%m-%d"),
+        "total_guides":           len(final_guides),
+        "new_added":              len(new_entries),
+        "removed":                len(removed_guides),
+        "rejected_new":           len(rejected),
+        "guides_by_language":     lang_counts,
+        "guides_by_habit":        habit_counts,
+        "coverage_below_minimum": still_gaps,
         "new_details": [
             {
                 "id":          g["id"],
