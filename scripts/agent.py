@@ -174,17 +174,12 @@ def claude_fast(prompt: str, system: str = "") -> str:
 
 
 def claude_search(prompt: str, system: str = "") -> str:
-    """
-    Claude sonnet call with web_search tool.
-    Runs the tool-use loop until end_turn, then returns all text blocks joined.
-    Guards against b.text being a non-string (can happen with web_search blocks).
-    """
     messages = [{"role": "user", "content": prompt}]
     kwargs: dict = {
-        "model":     MODEL_SEARCH,
+        "model":      MODEL_SEARCH,
         "max_tokens": 4096,
-        "messages":  messages,
-        "tools":     [{"type": "web_search_20250305", "name": "web_search"}],
+        "messages":   messages,
+        "tools":      [{"type": "web_search_20250305", "name": "web_search"}],
     }
     if system:
         kwargs["system"] = system
@@ -192,10 +187,15 @@ def claude_search(prompt: str, system: str = "") -> str:
     while True:
         resp = client.messages.create(**kwargs)
         if resp.stop_reason == "end_turn":
-            return "\n".join(
-                b.text for b in resp.content
-                if hasattr(b, "text") and isinstance(b.text, str)
-            )
+            parts = []
+            for b in resp.content:
+                text = getattr(b, "text", None)
+                if isinstance(text, str):
+                    parts.append(text)
+                elif isinstance(text, list):
+                    # web_search blocks sometimes return text as a list of strings
+                    parts.extend(t for t in text if isinstance(t, str))
+            return "\n".join(parts)
         if resp.stop_reason == "tool_use":
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = [
