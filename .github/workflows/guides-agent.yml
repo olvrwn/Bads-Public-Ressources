@@ -151,6 +151,8 @@ jobs:
             --base main \
             --head "${{ steps.commit.outputs.branch }}")
           echo "pull-request-url=$PR_URL" >> "$GITHUB_OUTPUT"
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "pull-request-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "::notice::Pull request created: $PR_URL"
 
       # -- 8. Send Slack notification ------------------------------------------
@@ -257,3 +259,13 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"text": "📚 Weekly Guides Agent ran — no changes needed this week."}'
           echo "::notice::No-changes Slack notification sent."
+
+      # -- 10. Run PR review agent ---------------------------------------------
+      - name: Run PR review agent
+        if: steps.commit.outputs.no_changes != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+          REPO: ${{ github.repository }}
+        run: node scripts/review-automated-pr.js
