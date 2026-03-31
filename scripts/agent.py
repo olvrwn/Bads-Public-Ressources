@@ -325,9 +325,7 @@ def _check_liveness(guide: dict) -> tuple[dict, str]:
         resp = httpx.get(url, follow_redirects=True, timeout=10)
         if resp.status_code < 400:
             return guide, "alive"
-        if resp.status_code in {404, 410}:
-            return guide, "dead"
-        return guide, "transient"
+        return guide, "dead"
     except Exception:
         return guide, "transient"
 
@@ -632,9 +630,9 @@ def validate_candidates(
 
         try:
             resp = httpx.get(url, follow_redirects=True, timeout=10)
-            if resp.status_code in {404, 410}:
+            if resp.status_code >= 400:
                 log(f"  ✗ Dead link skipped: {url}")
-                rejected.append({**article, "_rejection_reason": "URL is dead (404/410)"})
+                rejected.append({**article, "_rejection_reason": f"URL returned {resp.status_code} and is probably dead"})
                 continue
         except Exception:
             gha_warning(f"Liveness check failed for {url} — skipping candidate")
