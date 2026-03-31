@@ -2,7 +2,7 @@ name: Weekly Guides Agent
 
 on:
   schedule:
-    # Every Friday at 09:00 UTC — adjust timezone offset if needed
+    # Every Friday at 09:00 UTC
     - cron: "0 9 * * 5"
 
   # Lets you trigger it manually from GitHub Actions tab (useful for testing)
@@ -15,115 +15,70 @@ permissions:
 jobs:
   update-guides:
     runs-on: ubuntu-latest
-    timeout-minutes: 30   # agent can be slow — give it time
+    timeout-minutes: 30
 
     steps:
-      # ── 1. Checkout repo ──────────────────────────────────────────────────
+      # -- 1. Checkout repo ----------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         with:
-          fetch-depth: 0  # full history so we can branch properly
+          fetch-depth: 0
 
-      # ── 2. Set up Python ──────────────────────────────────────────────────
+      # -- 2. Set up Python ----------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5.3.0
         with:
           python-version: "3.12"
 
-      # ── 3. Install dependencies ───────────────────────────────────────────
+      # -- 3. Install dependencies ---------------------------------------------
       - name: Install dependencies
         run: pip install anthropic httpx
 
-      # ── 4. Run the agent ──────────────────────────────────────────────────
-      - name: Run guides agent
+      # -- 4. Run agent --------------------------------------------------------
+      - name: Run Guides Agent
         id: agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          python scripts/agent.py > agent_output.json
-          echo "Agent finished."
+        run: python habit_guides_agent.py
 
-      # ── 5. Read summary for PR body & notification ────────────────────────
-      - name: Parse agent summary
+      # -- 5. Parse summary & prepare output vars ------------------------------
+      - name: Parse summary
         id: summary
         run: |
           python - << 'PYEOF'
-          import json, sys, os
+          import json, os
 
-          with open("agent_output.json") as f:
-              content = f.read()
+          with open("summary.json") as f:
+              summary = json.load(f)
 
-          lines = content.strip().split("\n")
-          json_start = None
-          for i, line in enumerate(lines):
-              if line.strip() == "{":
-                  json_start = i
-          if json_start is None:
-              print("No summary JSON found")
-              sys.exit(1)
+          # Markdown lines for PR body (GitHub markdown links)
+          added_lines = "\n".join(
+              "- [{url}]({url}) — {description}".format(
+                  url=g["url"],
+                  description=(g.get("description") or g.get("title", "(no title)")),
+              )
+              for g in summary.get("new_details", [])
+          ) or "_None this week_"
 
-          summary = json.loads("\n".join(lines[json_start:]))
-          with open("summary.json", "w") as f:
-              json.dump(summary, f)
+          removed_lines = "\n".join(
+              "- [{url}]({url}) — {reason}".format(
+                  url=g["url"],
+                  reason=g.get("reason", "Unknown"),
+              )
+              for g in summary.get("removed_details", [])
+          ) or "_None this week_"
 
-          # ── Scalar outputs ──────────────────────────────────────────────
-          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+          out_path = os.environ["GITHUB_OUTPUT"]
+          with open(out_path, "a") as out:
+              out.write(f"date={summary['date']}\n")
               out.write(f"total={summary['total_guides']}\n")
               out.write(f"added={summary['new_added']}\n")
               out.write(f"removed={summary['removed']}\n")
-              out.write(f"date={summary['date']}\n")
-
-              # ── Multi-line: added articles ──────────────────────────────
-              # GitHub Actions requires the heredoc syntax for multi-line values.
-              added_lines = "\n".join(
-                  "- [{title}]({url}) `{lang}` · {habits} · _{desc}_".format(
-                      title=g.get("title", "(no title)"),
-                      url=g["url"],
-                      lang=g.get("language", ""),
-                      habits=", ".join(g.get("habits") or []),
-                      desc=(g.get("description") or "").replace("\n", " ").strip(),
-                  )
-                  for g in summary.get("new_details", [])
-              ) or "_None this week_"
-
-              # ── Multi-line: removed articles ────────────────────────────
-              removed_lines = "\n".join(
-                  "- [{title}]({url}) — {reason}".format(
-                      title=g.get("title", "(no title)"),
-                      url=g["url"],
-                      reason=g.get("reason", "Unknown"),
-                  )
-                  for g in summary.get("removed_details", [])
-              ) or "_None this week_"
-
-              # ── Slack-friendly plain-text versions (no markdown links) ──
-              # Slack uses mrkdwn, not GitHub markdown, so links need <url|text> format.
-              slack_added = "\n".join(
-                  "• <{url}|{title}> `{lang}` — {habits}".format(
-                      url=g["url"],
-                      title=g.get("title", "(no title)"),
-                      lang=g.get("language", ""),
-                      habits=", ".join(g.get("habits") or []),
-                  )
-                  for g in summary.get("new_details", [])
-              ) or "_None this week_"
-
-              slack_removed = "\n".join(
-                  "• <{url}|{title}> — {reason}".format(
-                      url=g["url"],
-                      title=g.get("title", "(no title)"),
-                      reason=g.get("reason", "Unknown"),
-                  )
-                  for g in summary.get("removed_details", [])
-              ) or "_None this week_"
-
               out.write(f"added_lines<<EOF\n{added_lines}\nEOF\n")
               out.write(f"removed_lines<<EOF\n{removed_lines}\nEOF\n")
-              out.write(f"slack_added<<EOF\n{slack_added}\nEOF\n")
-              out.write(f"slack_removed<<EOF\n{slack_removed}\nEOF\n")
           PYEOF
 
-      # ── 6. Commit changes to a new branch ────────────────────────────────
+      # -- 6. Commit changes to a new branch -----------------------------------
       - name: Commit updated guides JSON
         id: commit
         run: |
@@ -138,7 +93,7 @@ jobs:
           git push origin "$BRANCH"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
-      # ── 7. Create Pull Request ────────────────────────────────────────────
+      # -- 7. Create Pull Request ----------------------------------------------
       - name: Create Pull Request
         id: pr
         if: steps.commit.outputs.no_changes != 'true'
@@ -146,20 +101,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_URL=$(gh pr create \
-            --title "📚 Weekly guides update – ${{ steps.summary.outputs.date }}" \
-            --body "## Weekly Guides Agent Report
+            --title "📚 Weekly guides update — ${{ steps.summary.outputs.date }}" \
+            --body "## 📚 Weekly Guides Update — ${{ steps.summary.outputs.date }}
 
-          | | Count |
-          |---|---|
-          | ✅ New articles added | ${{ steps.summary.outputs.added }} |
-          | 🗑️ Articles removed | ${{ steps.summary.outputs.removed }} |
-          | 📚 Total guides | ${{ steps.summary.outputs.total }} |
+          ---
 
-          ### ✅ Added articles
+          ### ✅ Added Guides | Total: ${{ steps.summary.outputs.added }}
+
           ${{ steps.summary.outputs.added_lines }}
 
-          ### 🗑️ Removed articles
+          ---
+
+          ### 🗑️ Removed Guides | Total: ${{ steps.summary.outputs.removed }}
+
           ${{ steps.summary.outputs.removed_lines }}
+
+          ---
+
+          ### 📚 Current Total Guides: ${{ steps.summary.outputs.total }}
 
           > Auto-generated by the Guides Agent. Please review before merging." \
             --label "automated" \
@@ -167,45 +126,49 @@ jobs:
             --head "${{ steps.commit.outputs.branch }}")
           echo "pull-request-url=$PR_URL" >> $GITHUB_OUTPUT
 
-      # ── 8. Send Slack notification ────────────────────────────────────────
+      # -- 8. Send Slack notification ------------------------------------------
       - name: Notify via Slack
         if: steps.pr.outputs.pull-request-url != ''
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          # Build the JSON payload in a file to avoid shell quoting issues
-          # with multi-line strings from the summary outputs.
           python - << 'PYEOF'
           import json, os
 
-          pr_url    = "${{ steps.pr.outputs.pull-request-url }}"
-          date      = "${{ steps.summary.outputs.date }}"
-          added_n   = "${{ steps.summary.outputs.added }}"
-          removed_n = "${{ steps.summary.outputs.removed }}"
-          total_n   = "${{ steps.summary.outputs.total }}"
+          pr_url  = "${{ steps.pr.outputs.pull-request-url }}"
+          date    = "${{ steps.summary.outputs.date }}"
+          total_n = "${{ steps.summary.outputs.total }}"
 
-          # Read multi-line values from the summary file to avoid YAML quoting issues
           with open("summary.json") as f:
               summary = json.load(f)
 
-          slack_added = "\n".join(
-              "• <{url}|{title}> `{lang}` — {habits}".format(
-                  url=g["url"],
-                  title=g.get("title", "(no title)"),
-                  lang=g.get("language", ""),
-                  habits=", ".join(g.get("habits") or []),
+          # ✅ Added Guides section
+          new_details = summary.get("new_details", [])
+          if new_details:
+              added_lines = "\n".join(
+                  "• <{url}|{url}> — {description}".format(
+                      url=g["url"],
+                      description=(g.get("description") or g.get("title", "(no title)")),
+                  )
+                  for g in new_details
               )
-              for g in summary.get("new_details", [])
-          ) or "_None this week_"
+              added_block = f"✅ *Added Guides* | Total: {len(new_details)}\n{added_lines}"
+          else:
+              added_block = "✅ *Added Guides* | Total: 0\n_None this week_"
 
-          slack_removed = "\n".join(
-              "• <{url}|{title}> — {reason}".format(
-                  url=g["url"],
-                  title=g.get("title", "(no title)"),
-                  reason=g.get("reason", "Unknown"),
+          # 🗑️ Removed Guides section
+          removed_details = summary.get("removed_details", [])
+          if removed_details:
+              removed_lines = "\n".join(
+                  "• <{url}|{url}> — {reason}".format(
+                      url=g["url"],
+                      reason=g.get("reason", "Unknown"),
+                  )
+                  for g in removed_details
               )
-              for g in summary.get("removed_details", [])
-          ) or "_None this week_"
+              removed_block = f"🗑️ *Removed Guides* | Total: {len(removed_details)}\n{removed_lines}"
+          else:
+              removed_block = "🗑️ *Removed Guides* | Total: 0\n_None this week_"
 
           payload = {
               "blocks": [
@@ -217,35 +180,21 @@ jobs:
                           "emoji": True,
                       },
                   },
+                  {"type": "divider"},
                   {
                       "type": "section",
-                      "fields": [
-                          {"type": "mrkdwn", "text": f"*✅ Added*\n{added_n}"},
-                          {"type": "mrkdwn", "text": f"*🗑️ Removed*\n{removed_n}"},
-                          {"type": "mrkdwn", "text": f"*📚 Total*\n{total_n}"},
-                      ],
+                      "text": {"type": "mrkdwn", "text": added_block},
+                  },
+                  {
+                      "type": "section",
+                      "text": {"type": "mrkdwn", "text": removed_block},
                   },
                   {"type": "divider"},
                   {
                       "type": "section",
                       "text": {
                           "type": "mrkdwn",
-                          "text": f"*✅ Added articles*\n{slack_added}",
-                      },
-                  },
-                  {
-                      "type": "section",
-                      "text": {
-                          "type": "mrkdwn",
-                          "text": f"*🗑️ Removed articles*\n{slack_removed}",
-                      },
-                  },
-                  {"type": "divider"},
-                  {
-                      "type": "section",
-                      "text": {
-                          "type": "mrkdwn",
-                          "text": f"🔗 <{pr_url}|View full PR>",
+                          "text": f"📚 *Current Total Guides:* {total_n}\n🔗 <{pr_url}|View Pull Request>",
                       },
                   },
               ]
@@ -259,7 +208,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d @slack_payload.json
 
-      # ── 9. No-changes notification ────────────────────────────────────────
+      # -- 9. No-changes notification ------------------------------------------
       - name: Notify — no changes
         if: steps.commit.outputs.no_changes == 'true'
         env:

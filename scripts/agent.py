@@ -4,8 +4,8 @@ Triggered every other week by an external scheduler (e.g. GitHub Actions cron).
 Run directly with: python habit_guides_agent.py
 
 Pipeline:
-  1. Discover  -- broad open-ended search per habit × language
-  2. Coverage  -- for any habit × language with <MIN_GUIDES_PER_COMBO guides, run a
+  1. Discover  -- broad open-ended search per habit x language
+  2. Coverage  -- for any habit x language with <MIN_GUIDES_PER_COMBO guides, run a
                  targeted top-up search so every combo has baseline content
   3. Validate  -- URL liveness check + value judgement by Claude (with page snippet)
   4. Audit     -- moderate liveness check: remove only on GET 404/410
@@ -21,7 +21,6 @@ Key settings:
   - MAX_TAGS              : 15   (hard cap on total distinct tags in the registry)
   - Snippet fetch         : yes, before scoring
   - Near-duplicate dedup  : URL normalisation + Jaccard title similarity
-  - last_checked stamp    : written to every guide on each run
 """
 
 import os
@@ -32,7 +31,7 @@ import anthropic
 from datetime import datetime, timezone
 from pathlib import Path
 
-# ─── Config ────────────────────────────────────────────────────────────────────
+# --- Config -------------------------------------------------------------------
 
 GUIDES_FILE = "guides.json"
 
@@ -41,45 +40,36 @@ TRUSTED_DOMAIN_BONUS  = 1.0
 
 MIN_GUIDES_PER_COMBO = 3
 
-# Hard cap on how many distinct tags may exist in the registry at once.
-# Claude can propose new ones, but the registry is pruned to this limit
-# (least-used tags dropped first) before saving.
 MAX_TAGS = 15
 
 DEAD_STATUS_CODES      = {404, 410}
 TRANSIENT_STATUS_CODES = {429, 451, 500, 502, 503, 504}
 
-# Seed tags -- the registry starts here on a fresh install.
-# Loaded from guides.json on subsequent runs so it can grow/merge over time.
 DEFAULT_TAGS: set[str] = {
     "addiction", "effects", "global", "medical",
     "overview", "prevention", "risks", "treatment", "trends",
 }
 
-# Canonical merge map: any key found in a guide's tags is rewritten to its value.
-# Add entries here whenever you want to collapse variants permanently.
 TAG_MERGE_MAP: dict[str, str] = {
-    # plural / singular
-    "risk":        "risks",
-    "effect":      "effects",
-    "trend":       "trends",
-    # common near-synonyms
-    "health":      "medical",
-    "medicine":    "medical",
-    "therapy":     "treatment",
-    "rehab":       "treatment",
-    "recovery":    "treatment",
-    "abuse":       "addiction",
-    "dependency":  "addiction",
-    "dependence":  "addiction",
-    "drug":        "overview",
-    "substance":   "overview",
-    "education":   "prevention",
-    "awareness":   "prevention",
-    "statistics":  "trends",
-    "research":    "trends",
-    "science":     "medical",
-    "worldwide":   "global",
+    "risk":          "risks",
+    "effect":        "effects",
+    "trend":         "trends",
+    "health":        "medical",
+    "medicine":      "medical",
+    "therapy":       "treatment",
+    "rehab":         "treatment",
+    "recovery":      "treatment",
+    "abuse":         "addiction",
+    "dependency":    "addiction",
+    "dependence":    "addiction",
+    "drug":          "overview",
+    "substance":     "overview",
+    "education":     "prevention",
+    "awareness":     "prevention",
+    "statistics":    "trends",
+    "research":      "trends",
+    "science":       "medical",
+    "worldwide":     "global",
     "international": "global",
 }
 
@@ -108,16 +98,16 @@ TRUSTED_DOMAINS: list[str] = [
     "sns.gov.pt", "portaldasaude.pt", "fiocruz.br",
 ]
 
-# ─── Anthropic client ──────────────────────────────────────────────────────────
+# --- Anthropic client ---------------------------------------------------------
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-# ─── Model config ──────────────────────────────────────────────────────────────
+# --- Model config -------------------------------------------------------------
 
 MODEL_SEARCH = "claude-sonnet-4-5"
 MODEL_FAST   = "claude-haiku-4-5"
 
-# ─── Helpers ───────────────────────────────────────────────────────────────────
+# --- Helpers ------------------------------------------------------------------
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -163,7 +153,7 @@ def normalise_url(url: str) -> str:
     """Strip scheme, trailing slash, and query params for dedup comparison."""
     url = re.sub(r'^https?://', '', url.lower())
     url = url.rstrip('/')
-    url = re.sub(r'\?.*$', '', url)
+    url = re.sub(r'\?.*$', '', url)   # FIX: was r'\\?.*$' (double-escaped, never stripped query params)
     return url
 
 
@@ -194,9 +184,9 @@ def liveness_result(url: str) -> str:
 
     Returns one of: "alive" | "dead" | "transient"
 
-    "dead"      → GET returns 404 or 410 specifically
-    "transient" → any other non-2xx/3xx (5xx, 429, 451, network error, timeout)
-    "alive"     → GET returns < 400
+    "dead"      -> GET returns 404 or 410 specifically
+    "transient" -> any other non-2xx/3xx (5xx, 429, 451, network error, timeout)
+    "alive"     -> GET returns < 400
 
     HEAD is skipped entirely -- it is unreliable for dead-link detection
     (many servers return 405 or wrong codes on HEAD).
@@ -221,7 +211,7 @@ def strip_fence(raw: str) -> str:
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[-1]
     if raw.endswith("```"):
-        raw = raw.rsplit("```", 1)[0]
+        raw = raw.rsplit("```", 1)
     return raw.strip()
 
 
@@ -232,7 +222,7 @@ def fetch_page_snippet(url: str, max_chars: int = 800) -> str:
                          headers={"Accept": "text/html"})
         if resp.status_code >= 400:
             return ""
-        text = re.sub(r'<[^>]+>', ' ', resp.text)   # strip tags
+        text = re.sub(r'<[^>]+>', ' ', resp.text)
         text = re.sub(r'\s+', ' ', text).strip()
         return text[:max_chars]
     except Exception:
@@ -248,7 +238,7 @@ def claude(prompt: str, system: str = "") -> str:
     if system:
         kwargs["system"] = system
     resp = client.messages.create(**kwargs)
-    return resp.content[0].text
+    return resp.content.text
 
 
 def claude_with_search(prompt: str, system: str = "") -> str:
@@ -279,14 +269,14 @@ def claude_with_search(prompt: str, system: str = "") -> str:
             break
     return ""
 
-# ─── Step 1: Discover ──────────────────────────────────────────────────────────
+# --- Step 1: Discover ---------------------------------------------------------
 
 def discover_new_articles(existing_guides: list[dict]) -> list[dict]:
     """
-    One broad search per habit × language.
+    One broad search per habit x language.
     Existing URLs and normalised titles are passed so Claude avoids duplicates.
     """
-    print("\n🔍 Step 1: Discovering new articles...")
+    print("\n🔎 Step 1: Discovering new articles...")
     existing_urls: set[str] = {g["url"] for g in existing_guides}
     existing_norm_urls: set[str] = {normalise_url(u) for u in existing_urls}
     all_found: list[dict] = []
@@ -294,7 +284,6 @@ def discover_new_articles(existing_guides: list[dict]) -> list[dict]:
     for lang in LANGUAGES:
         for habit in HABITS:
             print(f"   [{lang['code']}] {habit}")
-            # Give Claude a sample of existing URLs to avoid, not the full list
             known_sample = list(existing_urls)[:30]
             prompt = f"""Search the web for high-quality {lang['locale']} articles about "{habit}"
 as a substance or behaviour -- covering any relevant angle such as health effects,
@@ -330,7 +319,6 @@ If nothing genuinely valuable is found, return an empty array: []
                 raw = claude_with_search(prompt)
                 found = json.loads(strip_fence(raw))
                 if isinstance(found, list):
-                    # Pre-filter obvious duplicates before validation
                     fresh = [
                         item for item in found
                         if item.get("url")
@@ -340,7 +328,6 @@ If nothing genuinely valuable is found, return an empty array: []
             except Exception as e:
                 print(f"   ⚠️  Search failed [{lang['code']}] {habit}: {e}")
 
-    # Dedup within this batch
     seen_norm: set[str] = set(existing_norm_urls)
     unique: list[dict] = []
     for item in all_found:
@@ -352,7 +339,7 @@ If nothing genuinely valuable is found, return an empty array: []
     print(f"   Found {len(unique)} new candidate articles")
     return unique
 
-# ─── Step 2: Coverage top-up ──────────────────────────────────────────────────
+# --- Step 2: Coverage top-up --------------------------------------------------
 
 def find_coverage_gaps(all_guides: list[dict]) -> list[tuple[str, dict]]:
     """
@@ -379,7 +366,7 @@ def topup_search(
     already_found: list[dict],
 ) -> list[dict]:
     """
-    Targeted searches for each under-covered habit × language combo.
+    Targeted searches for each under-covered habit x language combo.
     Returns new candidate articles (not already in existing_guides or already_found).
     """
     if not gaps:
@@ -445,7 +432,7 @@ If truly nothing exists, return [].
     return topup_candidates
 
 
-# ─── Step 3: Validate new articles ────────────────────────────────────────────
+# --- Step 3: Validate new articles --------------------------------------------
 
 def _score_article(article: dict) -> dict:
     url = article["url"]
@@ -503,13 +490,12 @@ def validate_new_articles(
     candidates: list[dict],
     existing_guides: list[dict],
 ) -> tuple[list[dict], list[dict]]:
-    print("\n🧪 Step 2: Validating new articles...")
+    print("\n🧪 Step 3: Validating new articles...")
     approved, rejected = [], []
 
     for article in candidates:
         url = article["url"]
 
-        # Near-duplicate check against already-kept guides
         if is_duplicate(article, existing_guides):
             print(f"   ♻️  Duplicate skipped: {url}")
             rejected.append({**article, "_rejection_reason": "Near-duplicate of existing guide"})
@@ -517,12 +503,11 @@ def validate_new_articles(
 
         result = liveness_result(url)
         if result == "dead":
-            print(f"   ❌ Dead link: {url}")
+            print(f"   ✗ Dead link: {url}")
             rejected.append({**article, "_rejection_reason": "URL not accessible"})
             continue
         if result == "transient":
             print(f"   ⏳ Transient error (skipping, not rejecting): {url}")
-            # Don't add -- but don't permanently reject either; just skip this run
             continue
 
         scores = _score_article(article)
@@ -533,29 +518,26 @@ def validate_new_articles(
             approved.append(article)
         else:
             reason = scores.get("rejection_reason") or "Below quality threshold"
-            print(f"   ❌ ({scores['overall']:.1f}): {article.get('title', url)} -- {reason}")
+            print(f"   ✗ ({scores['overall']:.1f}): {article.get('title', url)} -- {reason}")
             rejected.append(article)
 
     print(f"   Approved: {len(approved)} | Rejected: {len(rejected)}")
     return approved, rejected
 
-# ─── Step 4: Audit existing guides (conservative liveness check) ──────────────
+# --- Step 4: Audit existing guides (conservative liveness check) --------------
 
 def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     """
     Conservative liveness check.
-    A guide is removed ONLY when we get a definitive 404/410/451.
-    Timeouts, 5xx, 429, and pure network errors → keep the guide.
-    Also stamps last_checked on every guide.
+    A guide is removed ONLY when we get a definitive 404/410.
+    Timeouts, 5xx, 429, and pure network errors -> keep the guide.
     """
     print("\n✅ Step 4: Auditing existing guides (conservative liveness check)...")
     kept, removed = [], []
-    now_iso = utc_now().isoformat()
 
     for guide in guides:
         url = guide.get("url", "")
         result = liveness_result(url)
-        guide["last_checked"] = now_iso
 
         if result == "dead":
             print(f"   🗑️  Dead link removed: {url}")
@@ -569,7 +551,7 @@ def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     print(f"   Kept: {len(kept)} | Removed: {len(removed)}")
     return kept, removed
 
-# ─── Step 5: Enrich tags ──────────────────────────────────────────────────────
+# --- Step 5: Enrich tags ------------------------------------------------------
 
 def normalise_tag(tag: str) -> str:
     """Apply the merge map to a single tag string."""
@@ -611,7 +593,6 @@ def prune_registry(registry: set[str], guides: list[dict]) -> set[str]:
             if t in usage:
                 usage[t] += 1
 
-    # Sort by usage ascending -- drop least-used first
     sorted_tags = sorted(registry, key=lambda t: usage.get(t, 0))
     to_drop = len(registry) - MAX_TAGS
     dropped = set(sorted_tags[:to_drop])
@@ -654,15 +635,12 @@ Return ONLY JSON -- no markdown:
         raw_tags: list[str] = result.get("tags") or []
         new_tag: str | None = result.get("new_tag") or None
 
-        # Normalise every returned tag through the merge map
         tags = list(dict.fromkeys(normalise_tag(t) for t in raw_tags))
-        # Keep only tags that are in the registry (prevents hallucinated tags)
         tags = [t for t in tags if t in tag_registry]
 
         updated_registry = set(tag_registry)
         if new_tag:
             new_tag = normalise_tag(new_tag)
-            # Only accept if it doesn't already alias to something existing
             if new_tag not in updated_registry:
                 print(f"   🏷️  New tag proposed: '{new_tag}'")
                 updated_registry.add(new_tag)
@@ -671,7 +649,7 @@ Return ONLY JSON -- no markdown:
     except Exception:
         return ["overview"], tag_registry
 
-# ─── Step 6: Build guide entry ────────────────────────────────────────────────
+# --- Step 6: Build guide entry ------------------------------------------------
 
 def build_guide_entry(
     article: dict, guide_id: str, tag_registry: set[str]
@@ -696,11 +674,11 @@ def build_guide_entry(
         "author": article.get("author") or None,
         "habits": article.get("habits") or None,
         "tags": tags,
-        "last_checked": utc_now().isoformat(),
+        # last_checked removed intentionally
     }
     return entry, updated_registry
 
-# ─── Schema validation & repair ───────────────────────────────────────────────
+# --- Schema validation & repair -----------------------------------------------
 
 REQUIRED_KEYS: set[str] = {"id", "title", "description", "language", "source", "url", "habits"}
 
@@ -760,41 +738,41 @@ Use "" for missing string fields. Remove entries with unfixable URLs.
             print(f"   ⚠️  Still invalid after attempt {attempt}: {new_errors}")
             errors, current = new_errors, repaired
         except Exception as e:
-            print(f"   ❌ Repair attempt {attempt} raised exception: {e}")
+            print(f"   ✗ Repair attempt {attempt} raised exception: {e}")
 
-    print("   ❌ All repair attempts exhausted -- saving last best effort.")
+    print("   ✗ All repair attempts exhausted -- saving last best effort.")
     return current
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
+# --- Main ---------------------------------------------------------------------
 
 def run() -> dict:
     print("🚀 Starting Habit Guides Agent")
     print("=" * 52)
 
     existing_guides, tag_registry = load_guides()
-    print(f"📚 Loaded {len(existing_guides)} existing guides | "
+    print(f"📑 Loaded {len(existing_guides)} existing guides | "
           f"{len(tag_registry)} tags in registry: {sorted(tag_registry)}")
 
-    # ── 0. Tag hygiene on existing guides (merge map pass) ────────────────────
+    # -- 0. Tag hygiene on existing guides (merge map pass) --------------------
     existing_guides, rewrites = apply_tag_merge_map(existing_guides)
     if rewrites:
         print(f"   🏷️  Rewrote {rewrites} tag(s) on existing guides via merge map")
 
-    # ── 1. Discover ───────────────────────────────────────────────────────────
+    # -- 1. Discover -----------------------------------------------------------
     candidates = discover_new_articles(existing_guides)
 
-    # ── 2. Coverage top-up ────────────────────────────────────────────────────
+    # -- 2. Coverage top-up ----------------------------------------------------
     gaps = find_coverage_gaps(existing_guides + candidates)
     topup = topup_search(gaps, existing_guides, candidates)
     all_candidates = candidates + topup
 
-    # ── 3. Validate new ───────────────────────────────────────────────────────
+    # -- 3. Validate new -------------------------------------------------------
     approved_new, rejected_new = validate_new_articles(all_candidates, existing_guides)
 
-    # ── 4. Audit existing (moderate liveness: GET 404/410 only) ───────────────
+    # -- 4. Audit existing (moderate liveness: GET 404/410 only) ---------------
     kept_existing, removed_existing = audit_existing_guides(existing_guides)
 
-    # ── 5. Build new entries (tags enriched, registry updated per article) ────
+    # -- 5. Build new entries (tags enriched, registry updated per article) ----
     new_entries: list[dict] = []
     id_pool = kept_existing.copy()
     for article in approved_new:
@@ -803,18 +781,16 @@ def run() -> dict:
         new_entries.append(entry)
         id_pool.append(entry)
 
-    # ── 6. Tag hygiene -- prune registry if over cap ───────────────────────────
+    # -- 6. Tag hygiene -- prune registry if over cap --------------------------
     final_guides = kept_existing + new_entries
     tag_registry = prune_registry(tag_registry, final_guides)
 
-    # Re-apply merge map to any new entries in case Claude used a synonym
     final_guides, _ = apply_tag_merge_map(final_guides)
 
-    # Drop any tag on any guide that is no longer in the (possibly pruned) registry
     for g in final_guides:
         g["tags"] = [t for t in (g.get("tags") or []) if t in tag_registry] or ["overview"]
 
-    # ── 7. Schema validation with auto-repair ─────────────────────────────────
+    # -- 7. Schema validation with auto-repair ---------------------------------
     valid, errors = validate_json_schema(final_guides, tag_registry)
     if not valid:
         print(f"\n⚠️  Schema validation failed ({len(errors)} error(s)):")
@@ -824,15 +800,13 @@ def run() -> dict:
         valid, errors = validate_json_schema(final_guides, tag_registry)
         if not valid:
             raise ValueError(
-                "❌ JSON schema still invalid after repair!\n" + "\n".join(errors)
+                "✗ JSON schema still invalid after repair!\n" + "\n".join(errors)
             )
 
-    # ── 8. Save ───────────────────────────────────────────────────────────────
-    # NOTE: save_guides() is called here. Everything after this point is
-    # reporting only and does NOT affect guides.json.
+    # -- 8. Save ---------------------------------------------------------------
     save_guides(final_guides, tag_registry)
 
-    # ── Summary (reporting only — guides.json already written above) ──────────
+    # -- Summary (reporting only - guides.json already written above) ----------
     lang_counts = {l["code"]: 0 for l in LANGUAGES}
     habit_counts = {h: 0 for h in HABITS}
     for g in final_guides:
@@ -870,7 +844,6 @@ def run() -> dict:
         "guides_by_language": lang_counts,
         "guides_by_habit": habit_counts,
         "coverage_below_minimum": still_gaps,
-        # Detailed lists for PR body and Slack notification
         "new_details": [
             {
                 "id": g["id"],
@@ -897,8 +870,7 @@ def run() -> dict:
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return summary
 
-
-# ─── Entrypoint ───────────────────────────────────────────────────────────────
+# --- Entrypoint ---------------------------------------------------------------
 
 if __name__ == "__main__":
     run()
