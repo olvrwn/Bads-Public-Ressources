@@ -11,18 +11,18 @@ Pipeline:
   3. Discover  -- gap-aware serial search via Claude web_search tool
                   Gaps (<MIN_GUIDES_PER_COMBO) get a more aggressive prompt (4 results)
                   Covered combos get a light refresh prompt (2 results)
-                  Serial with 2s throttle to respect Anthropic free tier limits
+                  Serial with SEARCH_THROTTLE_SECS between calls
   4. Validate  -- two-gate quality check:
                   Gate 1: domain tier (Tier1=9.0, Tier2=7.5, auto-pass)
                   Gate 2: unknown domains → Claude 3-binary-check on fetched snippet
-  5. Enrich    -- assign tags via Claude haiku; propose new tags (capped at max_tags)
+  5. Enrich    -- assign tags + Gate 2 content check merged into one Claude call per article
   6. Save      -- merge, schema-validate, persist flat JSON array
   7. Summary   -- write summary.json for GitHub Actions workflow
 
-Rate limits (Anthropic free tier):
-  - 30,000 input tokens / minute
-  - 50 requests / minute
-  → MAX_SEARCH_WORKERS = 1 with 2s sleep between calls (~30 req/min)
+Rate limit notes:
+  - All Claude calls are serial with exponential backoff on 429s.
+  - SEARCH_THROTTLE_SECS is the baseline gap between search calls.
+  - MAX_LIVENESS_WORKERS only controls httpx threads (no API quota impact).
 """
 
 import os
@@ -68,12 +68,13 @@ GUIDES_FILE = "guides.json"
 MODEL_SEARCH = "claude-sonnet-4-5"
 MODEL_FAST   = "claude-haiku-4-5"
 
-# Anthropic free tier: serial search with throttle to avoid 429 cascade.
-# Each claude-sonnet search does multiple internal tool-use round trips,
-# easily hitting the 30k token/min or 50 req/min ceiling when parallelised.
-MAX_SEARCH_WORKERS   = 1
-MAX_LIVENESS_WORKERS = 20  # httpx only — safe to parallelise heavily
-SEARCH_THROTTLE_SECS = 2   # sleep between search calls
+MAX_LIVENESS_WORKERS = 20   # httpx only — no API quota impact
+SEARCH_THROTTLE_SECS = 2    # minimum gap between Claude search calls
+MAX_KNOWN_URLS_IN_PROMPT = 10  # keep prompts lean; dedup is enforced in Python anyway
+
+# Retry settings for Claude API calls
+RETRY_MAX_ATTEMPTS = 4
+RETRY_BASE_DELAY   = 5.0   # seconds; doubles on each 429
 
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
@@ -140,7 +141,7 @@ def strip_fence(raw: str) -> str:
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[-1]
     if raw.endswith("```"):
-        raw = raw.rsplit("```", 1)
+        raw = raw.rsplit("```", 1)[0]
     return raw.strip()
 
 
@@ -159,21 +160,53 @@ def fetch_snippet(url: str, max_chars: int = 1000) -> str:
     except Exception:
         return ""
 
+# ---------------------------------------------------------------------------
+# Claude wrappers with exponential backoff on 429
+# ---------------------------------------------------------------------------
+
+def _with_backoff(fn, *args, **kwargs):
+    """
+    Call fn(*args, **kwargs), retrying on RateLimitError up to
+    RETRY_MAX_ATTEMPTS times with exponential backoff.
+    All other exceptions propagate immediately.
+    """
+    delay = RETRY_BASE_DELAY
+    for attempt in range(1, RETRY_MAX_ATTEMPTS + 1):
+        try:
+            return fn(*args, **kwargs)
+        except anthropic.RateLimitError:
+            if attempt == RETRY_MAX_ATTEMPTS:
+                raise
+            gha_warning(
+                f"Rate limit hit — waiting {delay:.0f}s before retry "
+                f"({attempt}/{RETRY_MAX_ATTEMPTS - 1})"
+            )
+            time.sleep(delay)
+            delay *= 2
+
 
 def claude_fast(prompt: str, system: str = "") -> str:
-    """Single-turn Claude haiku call for scoring / tagging."""
-    kwargs: dict = {
-        "model":     MODEL_FAST,
-        "max_tokens": 1024,
-        "messages":  [{"role": "user", "content": prompt}],
-    }
-    if system:
-        kwargs["system"] = system
-    resp = client.messages.create(**kwargs)
-    return resp.content.text
+    """Single-turn Claude Haiku call for scoring / tagging."""
+    def _call():
+        kwargs: dict = {
+            "model":      MODEL_FAST,
+            "max_tokens": 1024,
+            "messages":   [{"role": "user", "content": prompt}],
+        }
+        if system:
+            kwargs["system"] = system
+        resp = client.messages.create(**kwargs)
+        return resp.content[0].text
+
+    return _with_backoff(_call)
 
 
 def claude_search(prompt: str, system: str = "") -> str:
+    """
+    Agentic search loop using web_search tool.
+    Retries the *initial* API call on 429; tool-use round trips are not
+    individually retried (they rarely hit limits mid-loop).
+    """
     messages = [{"role": "user", "content": prompt}]
     kwargs: dict = {
         "model":      MODEL_SEARCH,
@@ -184,8 +217,11 @@ def claude_search(prompt: str, system: str = "") -> str:
     if system:
         kwargs["system"] = system
 
+    # Only the first call is wrapped in backoff; subsequent tool-use turns
+    # proceed normally (they're continuations, not new rate-limited requests).
+    resp = _with_backoff(client.messages.create, **kwargs)
+
     while True:
-        resp = client.messages.create(**kwargs)
         if resp.stop_reason == "end_turn":
             parts = []
             for b in resp.content:
@@ -193,9 +229,9 @@ def claude_search(prompt: str, system: str = "") -> str:
                 if isinstance(text, str):
                     parts.append(text)
                 elif isinstance(text, list):
-                    # web_search blocks sometimes return text as a list of strings
                     parts.extend(t for t in text if isinstance(t, str))
             return "\n".join(parts)
+
         if resp.stop_reason == "tool_use":
             messages.append({"role": "assistant", "content": resp.content})
             tool_results = [
@@ -205,8 +241,10 @@ def claude_search(prompt: str, system: str = "") -> str:
             ]
             messages.append({"role": "user", "content": tool_results})
             kwargs["messages"] = messages
+            resp = client.messages.create(**kwargs)
         else:
             break
+
     return ""
 
 # ---------------------------------------------------------------------------
@@ -258,7 +296,7 @@ def audit_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     return kept, removed
 
 # ---------------------------------------------------------------------------
-# Step 2 — Gap-aware discovery
+# Step 2 — Gap-aware discovery (serial)
 # ---------------------------------------------------------------------------
 
 def _compute_counts(
@@ -285,8 +323,11 @@ def _search_one_combo(
     Single habit × language search. Returns a list of raw candidate dicts.
     is_gap=True  → ask for 4 articles with a more aggressive prompt.
     is_gap=False → ask for 2 articles for a light refresh.
-    Sleeps SEARCH_THROTTLE_SECS before the API call to respect free-tier limits.
+
+    Only the MAX_KNOWN_URLS_IN_PROMPT most-recently-normalised URLs are sent
+    in the prompt — Python-side dedup catches the rest, keeping prompts lean.
     """
+    # Throttle before every API call
     time.sleep(SEARCH_THROTTLE_SECS)
 
     count   = 4 if is_gap else 2
@@ -296,6 +337,9 @@ def _search_one_combo(
     ) if is_gap else (
         "We already have some content. Only return genuinely new, high-quality sources."
     )
+
+    # Limit URLs in prompt to keep token count down; dedup is enforced in Python.
+    sample_urls = sorted(known_urls)[:MAX_KNOWN_URLS_IN_PROMPT]
 
     prompt = f"""Search the web for {count} high-quality {lang['locale']} articles about "{habit}".
 
@@ -309,7 +353,7 @@ Requirements:
 - Do NOT include: forums, Reddit, social media, anonymous blogs, product/sales pages
 
 Do NOT include any of these already-known URLs:
-{sorted(known_urls)[:25]}
+{sample_urls}
 
 Return ONLY a valid JSON array — no markdown, no explanation:
 [
@@ -343,10 +387,8 @@ def discover_articles(
     config: dict,
 ) -> list[dict]:
     """
-    Gap-aware discovery. One serial wave, no second pass.
-    Gaps (below MIN_GUIDES_PER_COMBO) → aggressive prompt (4 results).
-    Covered combos → light refresh (2 results).
-    Serial with SEARCH_THROTTLE_SECS between calls to respect free-tier limits.
+    Gap-aware discovery. Fully serial — no thread pool — so throttling is
+    predictable and there's no risk of concurrent API calls racing each other.
     """
     habits    = config["habits"]
     languages = config["languages"]
@@ -368,34 +410,26 @@ def discover_articles(
     gha_group(
         f"Step 2 · Discover — {len(tasks)} combos "
         f"({gap_count} gaps, {len(tasks) - gap_count} refreshes) "
-        f"| serial with {SEARCH_THROTTLE_SECS}s throttle"
+        f"| fully serial, {SEARCH_THROTTLE_SECS}s throttle"
     )
 
     all_found: list[dict] = []
     seen_norm: set[str]   = set(known_urls)
 
-    # MAX_SEARCH_WORKERS=1 makes this effectively serial, but kept as a pool
-    # so it's trivial to increase once you upgrade to a paid tier.
-    with ThreadPoolExecutor(max_workers=MAX_SEARCH_WORKERS) as pool:
-        future_map = {
-            pool.submit(_search_one_combo, habit, lang, is_gap, known_urls): (habit, lang, is_gap)
-            for habit, lang, is_gap in tasks
-        }
-        for future in as_completed(future_map):
-            habit, lang, is_gap = future_map[future]
-            label = "GAP" if is_gap else "refresh"
-            try:
-                results = future.result()
-                fresh = []
-                for item in results:
-                    norm = normalise_url(item.get("url", ""))
-                    if norm and norm not in seen_norm:
-                        seen_norm.add(norm)
-                        fresh.append(item)
-                log(f"  [{lang['code']}] {habit:<15} ({label}) → {len(fresh)} new candidate(s)")
-                all_found.extend(fresh)
-            except Exception as e:
-                gha_warning(f"[{lang['code']}] {habit} ({label}) raised: {e}")
+    for habit, lang, is_gap in tasks:
+        label = "GAP" if is_gap else "refresh"
+        try:
+            results = _search_one_combo(habit, lang, is_gap, known_urls)
+            fresh = []
+            for item in results:
+                norm = normalise_url(item.get("url", ""))
+                if norm and norm not in seen_norm:
+                    seen_norm.add(norm)
+                    fresh.append(item)
+            log(f"  [{lang['code']}] {habit:<15} ({label}) → {len(fresh)} new candidate(s)")
+            all_found.extend(fresh)
+        except Exception as e:
+            gha_warning(f"[{lang['code']}] {habit} ({label}) raised: {e}")
 
     log(f"\n  Total candidates found: {len(all_found)}")
     gha_endgroup()
@@ -416,47 +450,67 @@ def _domain_tier(url: str, config: dict) -> int:
     return 0
 
 
-def _gate2_claude_check(article: dict) -> tuple[bool, str]:
+def _gate2_and_tags_claude(
+    article: dict,
+    tag_registry: set[str],
+    merge_map: dict,
+) -> tuple[bool, str, list[str], str | None]:
     """
-    Three binary checks via Claude on a fetched page snippet.
-    All three must pass. Returns (passed, reason).
+    Single Haiku call that performs Gate-2 quality checks AND tag assignment
+    together, halving the number of API calls compared to doing them separately.
+
+    Returns (passed, reason, tags, new_tag_or_None).
     """
     url     = article["url"]
     snippet = fetch_snippet(url)
     if not snippet:
-        return False, "Could not fetch page content for review"
+        return False, "Could not fetch page content for review", [], None
 
-    prompt = f"""You are a health content safety reviewer for a habit-tracking app aimed at harm reduction.
+    prompt = f"""You are a health content reviewer and tagger for a habit-tracking app.
 
-Review this article and answer three yes/no questions honestly.
+Review the article and answer the quality questions, then assign tags.
 
 URL      : {url}
 Title    : {article.get('title', '')}
+Habits   : {article.get('habits', [])}
 Snippet  : {snippet}
 
-Answer each question with exactly "yes" or "no":
-1. factual   — Is the health/science information grounded in evidence? (no sensationalism, no miracle claims)
+--- PART 1: Quality checks (answer each with exactly "yes" or "no") ---
+1. factual   — Is the health/science information grounded in evidence?
 2. qualified — Does the content appear written or reviewed by a qualified person or credible organisation?
 3. useful    — Would this genuinely help someone understand or manage this habit/substance?
 
+--- PART 2: Tagging ---
+Current tag registry (use these first):
+{sorted(tag_registry)}
+
+Tag merge rules — apply before returning:
+{json.dumps(merge_map, indent=2)}
+
+Pick 1-4 tags from the registry. Only propose a new tag (single lowercase word) if NO existing tag is even a rough fit.
+
 Return ONLY valid JSON — no markdown:
 {{
-  "factual": "yes",
+  "factual":   "yes",
   "qualified": "yes",
-  "useful": "yes",
-  "notes": "one short sentence explaining any concern, or null"
+  "useful":    "yes",
+  "notes":     null,
+  "tags":      ["tag1", "tag2"],
+  "new_tag":   null
 }}
 """
     try:
-        result = json.loads(strip_fence(claude_fast(prompt)))
-        passed = all(
+        result  = json.loads(strip_fence(claude_fast(prompt)))
+        passed  = all(
             result.get(k, "no").strip().lower() == "yes"
             for k in ("factual", "qualified", "useful")
         )
-        reason = result.get("notes") or ("All checks passed" if passed else "Failed one or more quality checks")
-        return passed, reason
+        reason  = result.get("notes") or ("All checks passed" if passed else "Failed quality check")
+        tags    = result.get("tags") or []
+        new_tag = result.get("new_tag") or None
+        return passed, reason, tags, new_tag
     except Exception as e:
-        return False, f"Validation error: {e}"
+        return False, f"Validation/tagging error: {e}", [], None
 
 
 def validate_candidates(
@@ -465,10 +519,12 @@ def validate_candidates(
     config: dict,
 ) -> tuple[list[dict], list[dict]]:
     """
-    Gate 1: domain tier check (auto-pass Tier1/Tier2).
-    Gate 2: Claude 3-binary-check for unknown domains.
+    Gate 1: domain tier check (auto-pass Tier1/Tier2, skips Gate-2 Claude call).
+    Gate 2: combined quality + tag check for unknown domains.
     Also deduplicates against existing_guides.
     Returns (approved, rejected).
+    Note: approved articles from unknown domains already have '_gate2_tags' and
+    '_gate2_new_tag' set so enrich_tags can reuse them without a second call.
     """
     gha_group(f"Step 3 · Validate — {len(candidates)} candidate(s)")
     approved, rejected = [], []
@@ -482,7 +538,7 @@ def validate_candidates(
             rejected.append({**article, "_rejection_reason": "Duplicate of existing guide"})
             continue
 
-        # Liveness check before scoring
+        # Liveness check
         try:
             resp = httpx.get(url, follow_redirects=True, timeout=10)
             if resp.status_code in {404, 410}:
@@ -493,7 +549,7 @@ def validate_candidates(
             gha_warning(f"Liveness check failed for {url} — skipping candidate")
             continue
 
-        # Gate 1: trusted domain tier
+        # Gate 1: trusted domain — auto-pass, tags assigned later in enrich step
         tier = _domain_tier(url, config)
         if tier == 1:
             article["_score"] = 9.0
@@ -506,10 +562,14 @@ def validate_candidates(
             approved.append(article)
             continue
 
-        # Gate 2: Claude content check for unknown domains
-        passed, reason = _gate2_claude_check(article)
+        # Gate 2: combined quality + tag check (one Haiku call)
+        tag_registry: set[str] = set(config["tag_registry"])
+        merge_map: dict        = config["tag_merge_map"]
+        passed, reason, tags, new_tag = _gate2_and_tags_claude(article, tag_registry, merge_map)
         if passed:
-            article["_score"] = 6.0
+            article["_score"]        = 6.0
+            article["_gate2_tags"]   = tags    # reused by build_entry to skip re-tagging
+            article["_gate2_new_tag"] = new_tag
             log(f"  ✅ Gate-2 passed: {article.get('title', url)}")
             approved.append(article)
         else:
@@ -536,12 +596,24 @@ def enrich_tags(
     max_tags: int,
 ) -> tuple[list[str], set[str]]:
     """
-    Ask Claude to assign 1-4 tags. It may propose one new tag if none fit.
-    New tags are added to registry only if registry is below max_tags.
-    Core tags are never dropped.
+    Assign tags via Claude Haiku.
+
+    For articles that already passed Gate-2 (unknown domains), the tags were
+    computed in the combined validate+tag call — reuse them here to avoid a
+    redundant API call.
+
+    For Tier-1/2 articles, run a dedicated tagging prompt.
     Returns (tags_for_article, updated_registry).
     """
-    prompt = f"""Tag this health article for a habit-tracking app.
+    updated_registry = set(tag_registry)
+
+    # Reuse tags from the combined Gate-2 call if available
+    if "_gate2_tags" in article:
+        raw_tags = article.pop("_gate2_tags") or []
+        new_tag  = article.pop("_gate2_new_tag", None)
+    else:
+        # Tier-1 / Tier-2 articles: dedicated tagging call
+        prompt = f"""Tag this health article for a habit-tracking app.
 
 Current tag registry (use these first):
 {sorted(tag_registry)}
@@ -568,30 +640,29 @@ Return ONLY valid JSON — no markdown:
   "new_tag": null
 }}
 """
-    try:
-        result  = json.loads(strip_fence(claude_fast(prompt)))
-        raw_tags: list[str] = result.get("tags") or []
-        new_tag: str | None = result.get("new_tag") or None
+        try:
+            result   = json.loads(strip_fence(claude_fast(prompt)))
+            raw_tags = result.get("tags") or []
+            new_tag  = result.get("new_tag") or None
+        except Exception:
+            return ["overview"], updated_registry
 
-        tags = list(dict.fromkeys(normalise_tag(t, merge_map) for t in raw_tags))
-        tags = [t for t in tags if t in tag_registry]
+    tags = list(dict.fromkeys(normalise_tag(t, merge_map) for t in raw_tags))
+    tags = [t for t in tags if t in updated_registry]
 
-        updated_registry = set(tag_registry)
-        if new_tag:
-            new_tag = normalise_tag(new_tag, merge_map)
-            if new_tag not in updated_registry:
-                if len(updated_registry) < max_tags:
-                    log(f"  🏷️  New tag added to registry: '{new_tag}'")
-                    updated_registry.add(new_tag)
-                else:
-                    gha_warning(
-                        f"Tag registry at cap ({max_tags}). "
-                        f"Proposed tag '{new_tag}' not added."
-                    )
+    if new_tag:
+        new_tag = normalise_tag(new_tag, merge_map)
+        if new_tag not in updated_registry:
+            if len(updated_registry) < max_tags:
+                log(f"  🏷️  New tag added to registry: '{new_tag}'")
+                updated_registry.add(new_tag)
+            else:
+                gha_warning(
+                    f"Tag registry at cap ({max_tags}). "
+                    f"Proposed tag '{new_tag}' not added."
+                )
 
-        return tags if tags else ["overview"], updated_registry
-    except Exception:
-        return ["overview"], tag_registry
+    return tags if tags else ["overview"], updated_registry
 
 # ---------------------------------------------------------------------------
 # Step 5 — Build final guide entry
@@ -624,6 +695,7 @@ def build_entry(
         article, tag_registry, core_tags, merge_map, max_tags
     )
 
+    # Strip internal bookkeeping keys before persisting
     entry = {
         "id":                      guide_id,
         "title":                   article.get("title", ""),
@@ -713,7 +785,7 @@ def run() -> dict:
     # -- Step 6: Merge & validate schema ---------------------------------------
     final_guides = kept_guides + new_entries
 
-    # Ensure all guide tags are in registry (prune stale tags from old entries)
+    # Prune stale tags from old entries (registry may have changed)
     for g in final_guides:
         g["tags"] = [t for t in (g.get("tags") or []) if t in tag_registry] or ["overview"]
 
@@ -724,7 +796,6 @@ def run() -> dict:
     else:
         for err in errors:
             gha_error(err)
-        # Best-effort: drop invalid entries rather than saving corrupt data
         before = len(final_guides)
         final_guides = [
             g for g in final_guides
