@@ -153,7 +153,7 @@ def normalise_url(url: str) -> str:
     """Strip scheme, trailing slash, and query params for dedup comparison."""
     url = re.sub(r'^https?://', '', url.lower())
     url = url.rstrip('/')
-    url = re.sub(r'\?.*$', '', url)   # FIX: was r'\\?.*$' (double-escaped, never stripped query params)
+    url = re.sub(r'\?.*$', '', url)
     return url
 
 
@@ -868,7 +868,7 @@ def run() -> dict:
     
     # Write summary.json for the GitHub Actions workflow to consume
     with open("summary.json", "w", encoding="utf-8") as f:
-    json.dump(summary, f, indent=2, ensure_ascii=False)
+        json.dump(summary, f, indent=2, ensure_ascii=False)
     print("\n📊 Summary:")
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return summary
