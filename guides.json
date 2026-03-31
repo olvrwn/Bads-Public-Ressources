@@ -1,5 +1,23 @@
 [
   {
+    "id": "2",
+    "title": "What Are the Physical Health Consequences of Tobacco Use?",
+    "description": "Cigarette smoking has been linked to about 80 to 90 percent of all cases of lung cancer. Smoking also substantially increases the risk of heart disease, including stroke, heart attack, vascular disease, and aneurysm. Although nicotine itself does not cause cancer, at least 69 chemicals in tobacco smoke are carcinogenic.",
+    "language": "en",
+    "estimatedReadingMinutes": 8,
+    "source": "NIDA – National Institute on Drug Abuse",
+    "url": "https://nida.nih.gov/publications/research-reports/tobacco-nicotine-e-cigarettes/what-are-physical-health-consequences-tobacco-use",
+    "author": null,
+    "habits": [
+      "Tobacco"
+    ],
+    "tags": [
+      "risks",
+      "effects",
+      "addiction"
+    ]
+  },
+  {
     "id": "1",
     "title": "Cigarette Smoking",
     "description": "Cigarette smoking is the leading preventable cause of disease, death, and disability in the United States. Smoking and secondhand smoke exposure cause more than 480,000 deaths each year in the United States. Smoking harms nearly every organ of the body and causes many diseases. Quitting smoking lowers the risk for early death and of developing smoking-related diseases.",
@@ -19,56 +37,31 @@
     ]
   },
   {
-    "id": "4",
-    "title": "Alcohol Use and Your Health",
-    "description": "Drinking alcohol can affect your health in many ways. Over time, excessive alcohol use can lead to the development of chronic diseases and other serious problems including high blood pressure, heart disease, stroke, liver disease, and digestive problems.",
-    "language": "en",
-    "estimatedReadingMinutes": 6,
-    "source": "CDC – Centers for Disease Control and Prevention",
-    "url": "https://www.cdc.gov/alcohol/about-alcohol-use/index.html",
-    "author": null,
-    "habits": [
-      "Alcohol"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects"
-    ]
-  },
-  {
-    "id": "3",
-    "title": "Health Effects of Cigarettes: Cardiovascular Disease",
-    "description": "Smoking is a major cause of cardiovascular disease (CVD) and is responsible for one in every four deaths from CVD. Estimates show that smoking increases the risk for coronary heart disease by 2 to 4 times and for stroke by 2 to 4 times compared to not smoking. Quitting smoking can protect people from cardiovascular disease and death.",
-    "language": "en",
-    "estimatedReadingMinutes": 5,
-    "source": "CDC – Centers for Disease Control and Prevention",
-    "url": "https://www.cdc.gov/tobacco/about/cigarettes-and-cardiovascular-disease.html",
-    "author": null,
-    "habits": [
-      "Tobacco"
-    ],
-    "tags": [
-      "risks",
-      "effects",
-      "prevention"
-    ]
-  },
-  {
-    "id": "2",
-    "title": "What Are the Physical Health Consequences of Tobacco Use?",
-    "description": "Cigarette smoking has been linked to about 80 to 90 percent of all cases of lung cancer. Smoking also substantially increases the risk of heart disease, including stroke, heart attack, vascular disease, and aneurysm. Although nicotine itself does not cause cancer, at least 69 chemicals in tobacco smoke are carcinogenic.",
+    "id": "19",
+    "title": "Treatment",
+    "description": "There are many options that have been successful in treating drug use disorders, including behavioral counseling, medication, medical devices, evaluation and treatment for co-occurring mental health issues, and long-term follow-up. No single treatment is right for everyone.",
     "language": "en",
     "estimatedReadingMinutes": 8,
     "source": "NIDA – National Institute on Drug Abuse",
-    "url": "https://nida.nih.gov/publications/research-reports/tobacco-nicotine-e-cigarettes/what-are-physical-health-consequences-tobacco-use",
+    "url": "https://nida.nih.gov/research-topics/treatment",
     "author": null,
     "habits": [
-      "Tobacco"
+      "Tobacco",
+      "Alcohol",
+      "Weed",
+      "Pills",
+      "Opioids",
+      "Cocaine",
+      "Ecstasy",
+      "Mushrooms",
+      "Amphetamines",
+      "LSD",
+      "GHB",
+      "Heroin"
     ],
     "tags": [
-      "risks",
-      "effects",
+      "treatment",
+      "prevention",
       "addiction"
     ]
   },
@@ -92,22 +85,40 @@
     ]
   },
   {
-    "id": "8",
-    "title": "Opioids",
-    "description": "Opioids are a class of natural, semi-synthetic, and synthetic drugs that include both prescription medications and illegal drugs like heroin. Use of opioids, either by themselves or in combination with other drugs, is a major driver of the drug overdose crisis. The vast majority of overdose deaths involve illicitly manufactured fentanyl and other potent synthetic opioids.",
+    "id": "10",
+    "title": "Heroin Research Report: Overview",
+    "description": "Heroin is a highly addictive opioid drug, and its use has repercussions that extend far beyond the individual user. The medical and social consequences of drug use—such as hepatitis, HIV/AIDS, fetal effects, crime, violence, and disruptions in family, workplace, and educational environments—have a devastating impact on society.",
     "language": "en",
-    "estimatedReadingMinutes": 10,
+    "estimatedReadingMinutes": 8,
     "source": "NIDA – National Institute on Drug Abuse",
-    "url": "https://nida.nih.gov/research-topics/opioids",
+    "url": "https://nida.nih.gov/publications/drugfacts/heroin",
     "author": null,
     "habits": [
-      "Opioids"
+      "Heroin"
     ],
     "tags": [
       "overview",
       "risks",
       "effects",
       "addiction"
+    ]
+  },
+  {
+    "id": "7",
+    "title": "Treatment for Alcohol Problems: Finding and Getting Help",
+    "description": "Alcohol-related problems are among the most significant public health issues in the United States. Millions of adults have alcohol use disorder. This guide is written for individuals—and their family and friends—who are looking for options to address alcohol problems and understand what treatment choices are available.",
+    "language": "en",
+    "estimatedReadingMinutes": 12,
+    "source": "NIAAA – National Institute on Alcohol Abuse and Alcoholism",
+    "url": "https://www.niaaa.nih.gov/publications/brochures-and-fact-sheets/treatment-alcohol-problems-finding-and-getting-help",
+    "author": null,
+    "habits": [
+      "Alcohol"
+    ],
+    "tags": [
+      "treatment",
+      "addiction",
+      "prevention"
     ]
   },
   {
@@ -129,6 +140,25 @@
       "overview",
       "risks",
       "effects"
+    ]
+  },
+  {
+    "id": "8",
+    "title": "Opioids",
+    "description": "Opioids are a class of natural, semi-synthetic, and synthetic drugs that include both prescription medications and illegal drugs like heroin. Use of opioids, either by themselves or in combination with other drugs, is a major driver of the drug overdose crisis. The vast majority of overdose deaths involve illicitly manufactured fentanyl and other potent synthetic opioids.",
+    "language": "en",
+    "estimatedReadingMinutes": 10,
+    "source": "NIDA – National Institute on Drug Abuse",
+    "url": "https://nida.nih.gov/research-topics/opioids",
+    "author": null,
+    "habits": [
+      "Opioids"
+    ],
+    "tags": [
+      "overview",
+      "risks",
+      "effects",
+      "addiction"
     ]
   },
   {
@@ -171,32 +201,23 @@
     ]
   },
   {
-    "id": "19",
-    "title": "Treatment",
-    "description": "There are many options that have been successful in treating drug use disorders, including behavioral counseling, medication, medical devices, evaluation and treatment for co-occurring mental health issues, and long-term follow-up. No single treatment is right for everyone.",
+    "id": "18",
+    "title": "Marijuana Research Report",
+    "description": "Marijuana refers to the dried leaves, flowers, stems, and seeds from the Cannabis sativa or Cannabis indica plant. It contains the mind-altering chemical THC. People use marijuana for recreational and medical purposes. Research on its long-term effects on the brain, mental health, and addiction potential is ongoing.",
     "language": "en",
-    "estimatedReadingMinutes": 8,
+    "estimatedReadingMinutes": 12,
     "source": "NIDA – National Institute on Drug Abuse",
-    "url": "https://nida.nih.gov/research-topics/treatment",
+    "url": "https://nida.nih.gov/publications/research-reports/marijuana/what-marijuana",
     "author": null,
     "habits": [
-      "Tobacco",
-      "Alcohol",
-      "Weed",
-      "Pills",
-      "Opioids",
-      "Cocaine",
-      "Ecstasy",
-      "Mushrooms",
-      "Amphetamines",
-      "LSD",
-      "GHB",
-      "Heroin"
+      "Weed"
     ],
     "tags": [
-      "treatment",
-      "prevention",
-      "addiction"
+      "overview",
+      "risks",
+      "effects",
+      "addiction",
+      "trends"
     ]
   },
   {
@@ -219,116 +240,21 @@
     ]
   },
   {
-    "id": "6",
-    "title": "Alcohol: Weighing Risks and Benefits",
-    "description": "The bottom line is that alcohol is potentially addictive, can cause intoxication, and contributes to health problems and preventable deaths. Any amount of drinking increases the risk of breast cancer and colorectal cancer. In general, a healthy diet and physical activity have much greater health benefits than alcohol.",
+    "id": "14",
+    "title": "Gambling",
+    "description": "Gambling disorder is recognized by the WHO as a significant public health concern. This fact sheet outlines the health impacts, prevalence, risk factors, and available help for people affected by problem gambling.",
     "language": "en",
-    "estimatedReadingMinutes": 8,
-    "source": "Mayo Clinic",
-    "url": "https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/alcohol/art-20044551",
+    "estimatedReadingMinutes": 5,
+    "source": "WHO – World Health Organization",
+    "url": "https://www.who.int/news-room/fact-sheets/detail/gambling",
     "author": null,
     "habits": [
-      "Alcohol"
-    ],
-    "tags": [
-      "risks",
-      "overview",
-      "prevention"
-    ]
-  },
-  {
-    "id": "18",
-    "title": "Marijuana Research Report",
-    "description": "Marijuana refers to the dried leaves, flowers, stems, and seeds from the Cannabis sativa or Cannabis indica plant. It contains the mind-altering chemical THC. People use marijuana for recreational and medical purposes. Research on its long-term effects on the brain, mental health, and addiction potential is ongoing.",
-    "language": "en",
-    "estimatedReadingMinutes": 12,
-    "source": "NIDA – National Institute on Drug Abuse",
-    "url": "https://nida.nih.gov/publications/research-reports/marijuana/what-marijuana",
-    "author": null,
-    "habits": [
-      "Weed"
+      "Gambling"
     ],
     "tags": [
       "overview",
       "risks",
-      "effects",
-      "addiction",
       "trends"
-    ]
-  },
-  {
-    "id": "10",
-    "title": "Heroin Research Report: Overview",
-    "description": "Heroin is a highly addictive opioid drug, and its use has repercussions that extend far beyond the individual user. The medical and social consequences of drug use—such as hepatitis, HIV/AIDS, fetal effects, crime, violence, and disruptions in family, workplace, and educational environments—have a devastating impact on society.",
-    "language": "en",
-    "estimatedReadingMinutes": 8,
-    "source": "NIDA – National Institute on Drug Abuse",
-    "url": "https://nida.nih.gov/publications/drugfacts/heroin",
-    "author": null,
-    "habits": [
-      "Heroin"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects",
-      "addiction"
-    ]
-  },
-  {
-    "id": "5",
-    "title": "Alcohol Use Disorder (Alcoholism)",
-    "description": "Alcohol use disorder is when you can't stop drinking even when it puts your health and safety at risk. Treatment may include medication and therapy. Studies show most people with this condition recover, meaning they reduce how much they drink, or stop drinking altogether.",
-    "language": "en",
-    "estimatedReadingMinutes": 7,
-    "source": "Cleveland Clinic",
-    "url": "https://my.clevelandclinic.org/health/diseases/3909-alcoholism",
-    "author": null,
-    "habits": [
-      "Alcohol"
-    ],
-    "tags": [
-      "overview",
-      "addiction",
-      "treatment",
-      "effects"
-    ]
-  },
-  {
-    "id": "17",
-    "title": "Marijuana (Cannabis, Weed): What It Is, Side Effects & Risks",
-    "description": "Marijuana is a mind-altering substance that comes from the Cannabis sativa plant. It has several short-term and long-term effects, many of which scientists are still studying. Short-term effects include altered senses, mood changes, impaired body movement, and difficulty with thinking and problem-solving.",
-    "language": "en",
-    "estimatedReadingMinutes": 10,
-    "source": "Cleveland Clinic",
-    "url": "https://my.clevelandclinic.org/health/articles/4392-marijuana-cannabis",
-    "author": null,
-    "habits": [
-      "Weed"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects",
-      "addiction"
-    ]
-  },
-  {
-    "id": "7",
-    "title": "Treatment for Alcohol Problems: Finding and Getting Help",
-    "description": "Alcohol-related problems are among the most significant public health issues in the United States. Millions of adults have alcohol use disorder. This guide is written for individuals—and their family and friends—who are looking for options to address alcohol problems and understand what treatment choices are available.",
-    "language": "en",
-    "estimatedReadingMinutes": 12,
-    "source": "NIAAA – National Institute on Alcohol Abuse and Alcoholism",
-    "url": "https://www.niaaa.nih.gov/publications/brochures-and-fact-sheets/treatment-alcohol-problems-finding-and-getting-help",
-    "author": null,
-    "habits": [
-      "Alcohol"
-    ],
-    "tags": [
-      "treatment",
-      "addiction",
-      "prevention"
     ]
   },
   {
@@ -351,21 +277,40 @@
     ]
   },
   {
-    "id": "14",
-    "title": "Gambling",
-    "description": "Gambling disorder is recognized by the WHO as a significant public health concern. This fact sheet outlines the health impacts, prevalence, risk factors, and available help for people affected by problem gambling.",
+    "id": "5",
+    "title": "Alcohol Use Disorder (Alcoholism)",
+    "description": "Alcohol use disorder is when you can't stop drinking even when it puts your health and safety at risk. Treatment may include medication and therapy. Studies show most people with this condition recover, meaning they reduce how much they drink, or stop drinking altogether.",
     "language": "en",
-    "estimatedReadingMinutes": 5,
-    "source": "WHO – World Health Organization",
-    "url": "https://www.who.int/news-room/fact-sheets/detail/gambling",
+    "estimatedReadingMinutes": 7,
+    "source": "Cleveland Clinic",
+    "url": "https://my.clevelandclinic.org/health/diseases/3909-alcoholism",
     "author": null,
     "habits": [
-      "Gambling"
+      "Alcohol"
     ],
     "tags": [
       "overview",
+      "addiction",
+      "treatment",
+      "effects"
+    ]
+  },
+  {
+    "id": "6",
+    "title": "Alcohol: Weighing Risks and Benefits",
+    "description": "The bottom line is that alcohol is potentially addictive, can cause intoxication, and contributes to health problems and preventable deaths. Any amount of drinking increases the risk of breast cancer and colorectal cancer. In general, a healthy diet and physical activity have much greater health benefits than alcohol.",
+    "language": "en",
+    "estimatedReadingMinutes": 8,
+    "source": "Mayo Clinic",
+    "url": "https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/alcohol/art-20044551",
+    "author": null,
+    "habits": [
+      "Alcohol"
+    ],
+    "tags": [
       "risks",
-      "trends"
+      "overview",
+      "prevention"
     ]
   },
   {
@@ -382,6 +327,24 @@
     ],
     "tags": [
       "overview",
+      "risks",
+      "effects",
+      "prevention"
+    ]
+  },
+  {
+    "id": "3",
+    "title": "Health Effects of Cigarettes: Cardiovascular Disease",
+    "description": "Smoking is a major cause of cardiovascular disease (CVD) and is responsible for one in every four deaths from CVD. Estimates show that smoking increases the risk for coronary heart disease by 2 to 4 times and for stroke by 2 to 4 times compared to not smoking. Quitting smoking can protect people from cardiovascular disease and death.",
+    "language": "en",
+    "estimatedReadingMinutes": 5,
+    "source": "CDC – Centers for Disease Control and Prevention",
+    "url": "https://www.cdc.gov/tobacco/about/cigarettes-and-cardiovascular-disease.html",
+    "author": null,
+    "habits": [
+      "Tobacco"
+    ],
+    "tags": [
       "risks",
       "effects",
       "prevention"
@@ -407,16 +370,16 @@
     ]
   },
   {
-    "id": "39",
-    "title": "Tabaco: riesgos y consecuencias para la salud",
-    "description": "El Plan Nacional sobre Drogas del Ministerio de Sanidad de España informa sobre los riesgos del tabaco: cáncer, enfermedades cardiovasculares y pulmonares. El tabaquismo es la principal causa evitable de enfermedad y muerte prematura en España, con más de 50.000 muertes anuales.",
+    "id": "42",
+    "title": "Cocaína: riesgos, efectos y dependencia",
+    "description": "La cocaína es un potente estimulante del sistema nervioso central con alto potencial adictivo. El Plan Nacional sobre Drogas informa sobre sus efectos, riesgos cardiovasculares, psiquiátricos y el riesgo de sobredosis, especialmente cuando se mezcla con otras sustancias.",
     "language": "es",
-    "estimatedReadingMinutes": 6,
+    "estimatedReadingMinutes": 7,
     "source": "Ministerio de Sanidad – España (PNSD)",
-    "url": "https://pnsd.sanidad.gob.es/ciudadanos/informacion/tabaco/menuTabaco/riesgos.htm",
+    "url": "https://pnsd.sanidad.gob.es/ciudadanos/informacion/cocaina/home.htm",
     "author": null,
     "habits": [
-      "Tobacco"
+      "Cocaine"
     ],
     "tags": [
       "overview",
@@ -426,13 +389,13 @@
     ]
   },
   {
-    "id": "42",
-    "title": "Cocaína: riesgos, efectos y dependencia",
-    "description": "La cocaína es un potente estimulante del sistema nervioso central con alto potencial adictivo. El Plan Nacional sobre Drogas informa sobre sus efectos, riesgos cardiovasculares, psiquiátricos y el riesgo de sobredosis, especialmente cuando se mezcla con otras sustancias.",
-    "language": "es",
-    "estimatedReadingMinutes": 7,
-    "source": "Ministerio de Sanidad – España (PNSD)",
-    "url": "https://pnsd.sanidad.gob.es/ciudadanos/informacion/cocaina/home.htm",
+    "id": "23",
+    "title": "Kokain: Wirkung & Folgen",
+    "description": "Kokain ist ein stark stimulierendes Suchtmittel mit hohem Abhängigkeitspotenzial. Die Wirkung ist von kurzer Dauer, was häufiges Nachdosieren begünstigt. Konsumierende gehen damit erhebliche gesundheitliche Risiken ein – darunter Herzprobleme, psychische Störungen und Abhängigkeit.",
+    "language": "de",
+    "estimatedReadingMinutes": 6,
+    "source": "gesundheit.gv.at – Öffentliches Gesundheitsportal Österreich",
+    "url": "https://www.gesundheit.gv.at/krankheiten/sucht/heroin-kokain/kokain-wirkung.html",
     "author": null,
     "habits": [
       "Cocaine"
@@ -464,70 +427,6 @@
     ]
   },
   {
-    "id": "23",
-    "title": "Kokain: Wirkung & Folgen",
-    "description": "Kokain ist ein stark stimulierendes Suchtmittel mit hohem Abhängigkeitspotenzial. Die Wirkung ist von kurzer Dauer, was häufiges Nachdosieren begünstigt. Konsumierende gehen damit erhebliche gesundheitliche Risiken ein – darunter Herzprobleme, psychische Störungen und Abhängigkeit.",
-    "language": "de",
-    "estimatedReadingMinutes": 6,
-    "source": "gesundheit.gv.at – Öffentliches Gesundheitsportal Österreich",
-    "url": "https://www.gesundheit.gv.at/krankheiten/sucht/heroin-kokain/kokain-wirkung.html",
-    "author": null,
-    "habits": [
-      "Cocaine"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects",
-      "addiction"
-    ]
-  },
-  {
-    "id": "37",
-    "title": "Cannabis (maconha): efeitos, riscos e dependência",
-    "description": "A cannabis é a droga ilícita mais consumida no Brasil. O THC, seu princípio ativo, atua no sistema nervoso central e pode causar dependência, comprometimento cognitivo e problemas de saúde mental, especialmente em usuários jovens.",
-    "language": "pt",
-    "estimatedReadingMinutes": 7,
-    "source": "SENAD – Secretaria Nacional de Políticas sobre Drogas",
-    "url": "https://www.gov.br/mj/pt-br/assuntos/sua-protecao/politicas-sobre-drogas/prevencao",
-    "author": null,
-    "habits": [
-      "Weed"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects",
-      "addiction"
-    ]
-  },
-  {
-    "id": "25",
-    "title": "Harte und weiche Drogen: Was macht eine Droge gefährlich?",
-    "description": "Die Techniker Krankenkasse erklärt, welche Kriterien die Gefährlichkeit von Drogen bestimmen – von Suchtpotenzial über Schädlichkeit bis zur Konsumform. Übersicht über legale und illegale Substanzen wie Alkohol, LSD, Amphetamine, Ecstasy und mehr.",
-    "language": "de",
-    "estimatedReadingMinutes": 8,
-    "source": "Techniker Krankenkasse (tk.de)",
-    "url": "https://www.tk.de/techniker/krankheit-und-behandlungen/erkrankungen/behandlungen-und-medizin/sucht/harte-und-weiche-drogen-2015580",
-    "author": null,
-    "habits": [
-      "Tobacco",
-      "Alcohol",
-      "Weed",
-      "Cocaine",
-      "Heroin",
-      "LSD",
-      "Ecstasy",
-      "Amphetamines",
-      "GHB"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects"
-    ]
-  },
-  {
     "id": "31",
     "title": "Pilze (Psilocybin): Wirkung und Risiken",
     "description": "Psilocybin-haltige Pilze sind natürliche Halluzinogene, die intensive wahrnehmungsverändernde Effekte auslösen können. Risiken bestehen vor allem in schlechten Trips, psychischer Destabilisierung und dem Risiko von Unfällen unter Einfluss.",
@@ -546,26 +445,21 @@
     ]
   },
   {
-    "id": "26",
-    "title": "Körperliche Folgen der Sucht",
-    "description": "Sucht hat viele Ursachen und viele Formen. Ob Nikotin-, Alkohol- oder Drogensucht: Die körperlichen Folgen reichen von Lungen- und Lebererkrankungen über Herz-Kreislauf-Probleme bis zu Krebsrisiken. Die Techniker Krankenkasse informiert umfassend über Sucht und Behandlungswege.",
+    "id": "28",
+    "title": "Ecstasy / MDMA: Wirkung und Risiken",
+    "description": "MDMA (Ecstasy, Molly) ist eine synthetische Droge mit stimulierenden und leicht halluzinogenen Eigenschaften. Zu den Risiken zählen Überhitzung, Herzrasen, Dehydrierung, psychische Störungen und bei chronischem Konsum dauerhafte Schäden an Serotonin-Neuronen.",
     "language": "de",
     "estimatedReadingMinutes": 6,
-    "source": "Techniker Krankenkasse (tk.de)",
-    "url": "https://www.tk.de/techniker/krankheit-und-behandlungen/erkrankungen/behandlungen-und-medizin/sucht/koerperliche-folgen-2015594",
+    "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
+    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-e/ecstasy/",
     "author": null,
     "habits": [
-      "Tobacco",
-      "Alcohol",
-      "Weed",
-      "Opioids",
-      "Cocaine",
-      "Heroin",
-      "Amphetamines"
+      "Ecstasy"
     ],
     "tags": [
-      "effects",
+      "overview",
       "risks",
+      "effects",
       "addiction"
     ]
   },
@@ -608,16 +502,16 @@
     ]
   },
   {
-    "id": "30",
-    "title": "LSD: Wirkung, Risiken und Nebenwirkungen",
-    "description": "LSD (Lysergsäurediethylamid) ist ein starkes Halluzinogen. Bereits kleine Mengen erzeugen intensive wahrnehmungsverändernde Erfahrungen. Risiken umfassen Horrortrips, Flashbacks, psychische Destabilisierung und mögliche Auslösung latenter psychischer Erkrankungen.",
-    "language": "de",
-    "estimatedReadingMinutes": 5,
-    "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
-    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-l/lsd/",
+    "id": "4",
+    "title": "Alcohol Use and Your Health",
+    "description": "Drinking alcohol can affect your health in many ways. Over time, excessive alcohol use can lead to the development of chronic diseases and other serious problems including high blood pressure, heart disease, stroke, liver disease, and digestive problems.",
+    "language": "en",
+    "estimatedReadingMinutes": 6,
+    "source": "CDC – Centers for Disease Control and Prevention",
+    "url": "https://www.cdc.gov/alcohol/about-alcohol-use/index.html",
     "author": null,
     "habits": [
-      "LSD"
+      "Alcohol"
     ],
     "tags": [
       "overview",
@@ -626,32 +520,13 @@
     ]
   },
   {
-    "id": "28",
-    "title": "Ecstasy / MDMA: Wirkung und Risiken",
-    "description": "MDMA (Ecstasy, Molly) ist eine synthetische Droge mit stimulierenden und leicht halluzinogenen Eigenschaften. Zu den Risiken zählen Überhitzung, Herzrasen, Dehydrierung, psychische Störungen und bei chronischem Konsum dauerhafte Schäden an Serotonin-Neuronen.",
-    "language": "de",
-    "estimatedReadingMinutes": 6,
-    "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
-    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-e/ecstasy/",
-    "author": null,
-    "habits": [
-      "Ecstasy"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects",
-      "addiction"
-    ]
-  },
-  {
-    "id": "22",
-    "title": "Cannabis: Wirkung, Risiken und Abhängigkeit",
-    "description": "Cannabis ist die am häufigsten konsumierte illegale Droge in Deutschland. Der Wirkstoff THC beeinflusst das Gehirn und kann zu Abhängigkeit, Psychosen und kognitiven Beeinträchtigungen führen – besonders bei Jugendlichen. Informationen zu Wirkung, Risiken und Ausstiegshilfen.",
-    "language": "de",
-    "estimatedReadingMinutes": 8,
-    "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
-    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-c/cannabis/",
+    "id": "17",
+    "title": "Marijuana (Cannabis, Weed): What It Is, Side Effects & Risks",
+    "description": "Marijuana is a mind-altering substance that comes from the Cannabis sativa plant. It has several short-term and long-term effects, many of which scientists are still studying. Short-term effects include altered senses, mood changes, impaired body movement, and difficulty with thinking and problem-solving.",
+    "language": "en",
+    "estimatedReadingMinutes": 10,
+    "source": "Cleveland Clinic",
+    "url": "https://my.clevelandclinic.org/health/articles/4392-marijuana-cannabis",
     "author": null,
     "habits": [
       "Weed"
@@ -684,22 +559,90 @@
     ]
   },
   {
-    "id": "21",
-    "title": "Alkohol: Risiken und Folgen",
-    "description": "Alkohol ist ein Zellgift und gehört zu den harten Drogen. Er kann körperlich stark abhängig machen und birgt große gesundheitliche Risiken. Eine Überdosis kann tödlich sein. Die BZgA informiert über Wirkungen, Gefahren und Hilfsangebote.",
+    "id": "22",
+    "title": "Cannabis: Wirkung, Risiken und Abhängigkeit",
+    "description": "Cannabis ist die am häufigsten konsumierte illegale Droge in Deutschland. Der Wirkstoff THC beeinflusst das Gehirn und kann zu Abhängigkeit, Psychosen und kognitiven Beeinträchtigungen führen – besonders bei Jugendlichen. Informationen zu Wirkung, Risiken und Ausstiegshilfen.",
     "language": "de",
-    "estimatedReadingMinutes": 7,
+    "estimatedReadingMinutes": 8,
     "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
-    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-a/alkohol/",
+    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-c/cannabis/",
     "author": null,
     "habits": [
-      "Alcohol"
+      "Weed"
     ],
     "tags": [
       "overview",
       "risks",
       "effects",
       "addiction"
+    ]
+  },
+  {
+    "id": "30",
+    "title": "LSD: Wirkung, Risiken und Nebenwirkungen",
+    "description": "LSD (Lysergsäurediethylamid) ist ein starkes Halluzinogen. Bereits kleine Mengen erzeugen intensive wahrnehmungsverändernde Erfahrungen. Risiken umfassen Horrortrips, Flashbacks, psychische Destabilisierung und mögliche Auslösung latenter psychischer Erkrankungen.",
+    "language": "de",
+    "estimatedReadingMinutes": 5,
+    "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
+    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-l/lsd/",
+    "author": null,
+    "habits": [
+      "LSD"
+    ],
+    "tags": [
+      "overview",
+      "risks",
+      "effects"
+    ]
+  },
+  {
+    "id": "26",
+    "title": "Körperliche Folgen der Sucht",
+    "description": "Sucht hat viele Ursachen und viele Formen. Ob Nikotin-, Alkohol- oder Drogensucht: Die körperlichen Folgen reichen von Lungen- und Lebererkrankungen über Herz-Kreislauf-Probleme bis zu Krebsrisiken. Die Techniker Krankenkasse informiert umfassend über Sucht und Behandlungswege.",
+    "language": "de",
+    "estimatedReadingMinutes": 6,
+    "source": "Techniker Krankenkasse (tk.de)",
+    "url": "https://www.tk.de/techniker/krankheit-und-behandlungen/erkrankungen/behandlungen-und-medizin/sucht/koerperliche-folgen-2015594",
+    "author": null,
+    "habits": [
+      "Tobacco",
+      "Alcohol",
+      "Weed",
+      "Opioids",
+      "Cocaine",
+      "Heroin",
+      "Amphetamines"
+    ],
+    "tags": [
+      "effects",
+      "risks",
+      "addiction"
+    ]
+  },
+  {
+    "id": "25",
+    "title": "Harte und weiche Drogen: Was macht eine Droge gefährlich?",
+    "description": "Die Techniker Krankenkasse erklärt, welche Kriterien die Gefährlichkeit von Drogen bestimmen – von Suchtpotenzial über Schädlichkeit bis zur Konsumform. Übersicht über legale und illegale Substanzen wie Alkohol, LSD, Amphetamine, Ecstasy und mehr.",
+    "language": "de",
+    "estimatedReadingMinutes": 8,
+    "source": "Techniker Krankenkasse (tk.de)",
+    "url": "https://www.tk.de/techniker/krankheit-und-behandlungen/erkrankungen/behandlungen-und-medizin/sucht/harte-und-weiche-drogen-2015580",
+    "author": null,
+    "habits": [
+      "Tobacco",
+      "Alcohol",
+      "Weed",
+      "Cocaine",
+      "Heroin",
+      "LSD",
+      "Ecstasy",
+      "Amphetamines",
+      "GHB"
+    ],
+    "tags": [
+      "overview",
+      "risks",
+      "effects"
     ]
   },
   {
@@ -748,6 +691,25 @@
     ]
   },
   {
+    "id": "21",
+    "title": "Alkohol: Risiken und Folgen",
+    "description": "Alkohol ist ein Zellgift und gehört zu den harten Drogen. Er kann körperlich stark abhängig machen und birgt große gesundheitliche Risiken. Eine Überdosis kann tödlich sein. Die BZgA informiert über Wirkungen, Gefahren und Hilfsangebote.",
+    "language": "de",
+    "estimatedReadingMinutes": 7,
+    "source": "BZgA – Bundeszentrale für gesundheitliche Aufklärung (drugcom.de)",
+    "url": "https://www.drugcom.de/drogenlexikon/buchstabe-a/alkohol/",
+    "author": null,
+    "habits": [
+      "Alcohol"
+    ],
+    "tags": [
+      "overview",
+      "risks",
+      "effects",
+      "addiction"
+    ]
+  },
+  {
     "id": "48",
     "title": "Alcool : effets sur la santé et risques",
     "description": "L'alcool est un produit psychoactif qui a un effet direct sur le cerveau. À forte dose, il provoque l'ivresse et peut entraîner un coma éthylique. Sa consommation régulière augmente le risque de maladies cardiovasculaires, de cancers et de dépendance.",
@@ -764,36 +726,6 @@
       "risks",
       "effects",
       "addiction",
-      "prevention"
-    ]
-  },
-  {
-    "id": "51",
-    "title": "Drogues illicites : usages, risques et accompagnements",
-    "description": "Le guide de référence de la MILDECA (décembre 2025) couvre toutes les drogues illicites : cannabis, cocaïne, héroïne, MDMA, LSD, champignons, GHB, amphétamines et opioïdes. Il présente leurs effets, risques sanitaires, potentiel addictif et les ressources d'accompagnement disponibles en France.",
-    "language": "fr",
-    "estimatedReadingMinutes": 20,
-    "source": "MILDECA – Mission interministérielle de lutte contre les drogues et les conduites addictives",
-    "url": "https://www.drogues.gouv.fr/sites/default/files/2026-01/R%C3%A9f%C3%A9rentiel_drogues_MILDECA_2025.pdf",
-    "author": null,
-    "habits": [
-      "Weed",
-      "Cocaine",
-      "Heroin",
-      "Ecstasy",
-      "LSD",
-      "Mushrooms",
-      "GHB",
-      "Amphetamines",
-      "Opioids",
-      "Pills"
-    ],
-    "tags": [
-      "overview",
-      "risks",
-      "effects",
-      "addiction",
-      "treatment",
       "prevention"
     ]
   },
@@ -845,6 +777,36 @@
     ]
   },
   {
+    "id": "51",
+    "title": "Drogues illicites : usages, risques et accompagnements",
+    "description": "Le guide de référence de la MILDECA (décembre 2025) couvre toutes les drogues illicites : cannabis, cocaïne, héroïne, MDMA, LSD, champignons, GHB, amphétamines et opioïdes. Il présente leurs effets, risques sanitaires, potentiel addictif et les ressources d'accompagnement disponibles en France.",
+    "language": "fr",
+    "estimatedReadingMinutes": 20,
+    "source": "MILDECA – Mission interministérielle de lutte contre les drogues et les conduites addictives",
+    "url": "https://www.drogues.gouv.fr/sites/default/files/2026-01/R%C3%A9f%C3%A9rentiel_drogues_MILDECA_2025.pdf",
+    "author": null,
+    "habits": [
+      "Weed",
+      "Cocaine",
+      "Heroin",
+      "Ecstasy",
+      "LSD",
+      "Mushrooms",
+      "GHB",
+      "Amphetamines",
+      "Opioids",
+      "Pills"
+    ],
+    "tags": [
+      "overview",
+      "risks",
+      "effects",
+      "addiction",
+      "treatment",
+      "prevention"
+    ]
+  },
+  {
     "id": "50",
     "title": "Cannabis : effets, risques et dépendance",
     "description": "Malgré la baisse de son usage chez les mineurs, le cannabis reste la drogue illicite la plus consommée en France. Sa consommation régulière entraîne des troubles de la mémoire, une baisse de motivation, et peut favoriser des troubles psychotiques chez les jeunes.",
@@ -865,32 +827,29 @@
     ]
   },
   {
-    "id": "38",
-    "title": "Jogo patológico (ludopatia): o que é e como tratar",
-    "description": "O jogo patológico é um transtorno do controlo dos impulsos reconhecido como doença pelo DSM-5. Afeta finanças, relacionamentos e saúde mental. O tratamento inclui psicoterapia cognitivo-comportamental e grupos de apoio.",
-    "language": "pt",
-    "estimatedReadingMinutes": 6,
-    "source": "CFP – Conselho Federal de Psicologia",
-    "url": "https://www.cfp.org.br/",
+    "id": "58",
+    "title": "Alcohol",
+    "description": "WHO fact sheet covering global alcohol-related mortality, health risks, and policy interventions. In 2019, 2.6 million deaths were attributable to alcohol consumption globally. Discusses the SAFER initiative and evidence-based strategies to reduce alcohol harm.",
+    "language": "en",
+    "estimatedReadingMinutes": 7,
+    "source": "World Health Organization (WHO)",
+    "url": "https://www.who.int/news-room/fact-sheets/detail/alcohol",
     "author": null,
     "habits": [
-      "Gambling"
+      "Alcohol"
     ],
     "tags": [
-      "overview",
-      "addiction",
-      "treatment",
-      "risks"
+      "overview"
     ]
   },
   {
-    "id": "47",
-    "title": "Tabac : effets sur la santé, dépendance et arrêt",
-    "description": "Le tabac est responsable de plus de 75 000 décès par an en France. Santé publique France informe sur les effets du tabagisme sur les poumons, le cœur et le risque de cancer, ainsi que sur les méthodes d'arrêt et les substituts nicotiniques.",
-    "language": "fr",
-    "estimatedReadingMinutes": 7,
-    "source": "Santé publique France (tabac-info-service.fr)",
-    "url": "https://www.tabac-info-service.fr",
+    "id": "33",
+    "title": "Tabagismo: o que é, causas, efeitos e tratamento",
+    "description": "O tabagismo é reconhecido pela OMS como uma pandemia. No Brasil, são mais de 161 mil mortes anuais atribuíveis ao uso de tabaco. O Instituto Nacional do Câncer (INCA) classifica o tabagismo como doença crônica causada pela dependência à nicotina.",
+    "language": "pt",
+    "estimatedReadingMinutes": 8,
+    "source": "INCA – Instituto Nacional do Câncer (gov.br)",
+    "url": "https://www.gov.br/inca/pt-br/assuntos/causas-e-prevencao-do-cancer/tabagismo",
     "author": null,
     "habits": [
       "Tobacco"
@@ -899,8 +858,7 @@
       "overview",
       "risks",
       "effects",
-      "addiction",
-      "treatment"
+      "addiction"
     ]
   },
   {
@@ -926,16 +884,16 @@
     ]
   },
   {
-    "id": "33",
-    "title": "Tabagismo: o que é, causas, efeitos e tratamento",
-    "description": "O tabagismo é reconhecido pela OMS como uma pandemia. No Brasil, são mais de 161 mil mortes anuais atribuíveis ao uso de tabaco. O Instituto Nacional do Câncer (INCA) classifica o tabagismo como doença crônica causada pela dependência à nicotina.",
+    "id": "37",
+    "title": "Cannabis (maconha): efeitos, riscos e dependência",
+    "description": "A cannabis é a droga ilícita mais consumida no Brasil. O THC, seu princípio ativo, atua no sistema nervoso central e pode causar dependência, comprometimento cognitivo e problemas de saúde mental, especialmente em usuários jovens.",
     "language": "pt",
-    "estimatedReadingMinutes": 8,
-    "source": "INCA – Instituto Nacional do Câncer (gov.br)",
-    "url": "https://www.gov.br/inca/pt-br/assuntos/causas-e-prevencao-do-cancer/tabagismo",
+    "estimatedReadingMinutes": 7,
+    "source": "SENAD – Secretaria Nacional de Políticas sobre Drogas",
+    "url": "https://www.gov.br/mj/pt-br/assuntos/sua-protecao/politicas-sobre-drogas/prevencao",
     "author": null,
     "habits": [
-      "Tobacco"
+      "Weed"
     ],
     "tags": [
       "overview",
@@ -963,19 +921,61 @@
     ]
   },
   {
-    "id": "58",
-    "title": "Alcohol",
-    "description": "WHO fact sheet covering global alcohol-related mortality, health risks, and policy interventions. In 2019, 2.6 million deaths were attributable to alcohol consumption globally. Discusses the SAFER initiative and evidence-based strategies to reduce alcohol harm.",
-    "language": "en",
+    "id": "47",
+    "title": "Tabac : effets sur la santé, dépendance et arrêt",
+    "description": "Le tabac est responsable de plus de 75 000 décès par an en France. Santé publique France informe sur les effets du tabagisme sur les poumons, le cœur et le risque de cancer, ainsi que sur les méthodes d'arrêt et les substituts nicotiniques.",
+    "language": "fr",
     "estimatedReadingMinutes": 7,
-    "source": "World Health Organization (WHO)",
-    "url": "https://www.who.int/news-room/fact-sheets/detail/alcohol",
+    "source": "Santé publique France (tabac-info-service.fr)",
+    "url": "https://www.tabac-info-service.fr",
     "author": null,
     "habits": [
-      "Alcohol"
+      "Tobacco"
     ],
     "tags": [
-      "overview"
+      "overview",
+      "risks",
+      "effects",
+      "addiction",
+      "treatment"
+    ]
+  },
+  {
+    "id": "39",
+    "title": "Tabaco: riesgos y consecuencias para la salud",
+    "description": "El Plan Nacional sobre Drogas del Ministerio de Sanidad de España informa sobre los riesgos del tabaco: cáncer, enfermedades cardiovasculares y pulmonares. El tabaquismo es la principal causa evitable de enfermedad y muerte prematura en España, con más de 50.000 muertes anuales.",
+    "language": "es",
+    "estimatedReadingMinutes": 6,
+    "source": "Ministerio de Sanidad – España (PNSD)",
+    "url": "https://pnsd.sanidad.gob.es/ciudadanos/informacion/tabaco/menuTabaco/riesgos.htm",
+    "author": null,
+    "habits": [
+      "Tobacco"
+    ],
+    "tags": [
+      "overview",
+      "risks",
+      "effects",
+      "addiction"
+    ]
+  },
+  {
+    "id": "38",
+    "title": "Jogo patológico (ludopatia): o que é e como tratar",
+    "description": "O jogo patológico é um transtorno do controlo dos impulsos reconhecido como doença pelo DSM-5. Afeta finanças, relacionamentos e saúde mental. O tratamento inclui psicoterapia cognitivo-comportamental e grupos de apoio.",
+    "language": "pt",
+    "estimatedReadingMinutes": 6,
+    "source": "CFP – Conselho Federal de Psicologia",
+    "url": "https://www.cfp.org.br/",
+    "author": null,
+    "habits": [
+      "Gambling"
+    ],
+    "tags": [
+      "overview",
+      "addiction",
+      "treatment",
+      "risks"
     ]
   }
 ]
