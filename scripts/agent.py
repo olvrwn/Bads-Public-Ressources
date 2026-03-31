@@ -88,10 +88,11 @@ GUIDES_FILE = "guides.json"
 MODEL_SEARCH = "claude-sonnet-4-5"
 MODEL_FAST   = "claude-haiku-4-5"
 
-MAX_LIVENESS_WORKERS   = 20    # httpx only — no API quota impact
-SEARCH_THROTTLE_SECS   = 2     # minimum gap between Claude search calls
-MAX_KNOWN_URLS_IN_PROMPT = 10  # keep prompts lean; dedup enforced in Python
-BATCH_TAG_SIZE         = 10    # articles per batched Haiku tagging call
+MAX_LIVENESS_WORKERS    = 20    # httpx only — no API quota impact
+SEARCH_THROTTLE_SECS    = 2     # minimum gap between Claude search calls
+MAX_KNOWN_URLS_IN_PROMPT = 10   # keep prompts lean; dedup enforced in Python
+BATCH_TAG_SIZE          = 10    # articles per batched Haiku tagging call
+MAX_DISCOVERIES_PER_RUN = 10    # cap new candidates found per run
 
 # Stale-aware liveness: how many days before we re-check a guide's URL.
 # Tier-0 (unknown) domains are rechecked at half this interval.
@@ -537,6 +538,9 @@ def discover_articles(
         except Exception as e:
             gha_warning(f"[{lang['code']}] {habit} ({label}) raised: {e}")
 
+    if len(all_found) > MAX_DISCOVERIES_PER_RUN:
+        log(f"  ⚠️  Capping candidates at {MAX_DISCOVERIES_PER_RUN} (found {len(all_found)} total)")
+        all_found = all_found[:MAX_DISCOVERIES_PER_RUN]
     log(f"\n  Total candidates found: {len(all_found)}")
     gha_endgroup()
     return all_found
@@ -732,7 +736,7 @@ Return ONLY a valid JSON array with one object per article, in the same order:
   ...
 ]
 """
-    default = [("overview", None)] * len(articles)
+    default = [([("overview")], None)] * len(articles)
     try:
         raw    = claude_fast(prompt)
         parsed = json.loads(strip_fence(raw))
@@ -746,7 +750,7 @@ Return ONLY a valid JSON array with one object per article, in the same order:
             tags = list(dict.fromkeys(normalise_tag(t, merge_map) for t in raw_tags))
             tags = [t for t in tags if t in tag_registry]
             results[idx] = (tags or ["overview"], new_tag)
-        return [r if r is not None else ("overview", None) for r in results]
+        return [r if r is not None else (["overview"], None) for r in results]
     except Exception:
         return default
 
@@ -1009,61 +1013,26 @@ def run() -> dict:
             if h in coverage:
                 coverage[h][lc] = coverage[h].get(lc, 0) + 1
 
-    min_combo  = config.get("min_guides_per_combo", 3)
-    still_gaps = [
-        f"{h}/{lc}"
-        for h in config["habits"]
-        for lang in config["languages"]
-        for lc in [lang["code"]]
-        if coverage.get(h, {}).get(lc, 0) < min_combo
-    ]
-
     summary = {
-        "date":                   today_str(),
-        "mode":                   mode,
-        "total_guides":           len(final_guides),
-        "new_added":              len(new_entries),
-        "removed":                len(removed_guides),
-        "rejected_new":           len(rejected),
-        "guides_by_language":     lang_counts,
-        "guides_by_habit":        habit_counts,
-        "coverage_below_minimum": still_gaps,
-        "new_details": [
-            {
-                "id":          g["id"],
-                "url":         g["url"],
-                "title":       g.get("title", ""),
-                "description": g.get("description") or "",
-                "language":    g.get("language", ""),
-                "habits":      g.get("habits") or [],
-                "tags":        g.get("tags") or [],
-            }
-            for g in new_entries
-        ],
-        "removed_details": [
-            {
-                "url":    g["url"],
-                "title":  g.get("title", ""),
-                "reason": g.get("_removal_reason", "Unknown"),
-            }
-            for g in removed_guides
-        ],
+        "run_date":      today_str(),
+        "mode":          mode,
+        "total_guides":  len(final_guides),
+        "new_guides":    len(new_entries),
+        "removed":       len(removed_guides),
+        "lang_counts":   lang_counts,
+        "habit_counts":  habit_counts,
+        "coverage":      coverage,
+        "tag_registry":  sorted(tag_registry),
     }
 
-    with open("summary.json", "w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, ensure_ascii=False)
+    Path("summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    gha_notice(f"Summary written to summary.json")
 
-    gha_group("📊 Run Summary")
-    log(f"  Mode         : {mode}")
-    log(f"  Total guides : {summary['total_guides']}")
-    log(f"  New added    : {summary['new_added']}")
-    log(f"  Removed      : {summary['removed']}")
-    log(f"  Rejected new : {summary['rejected_new']}")
-    log(f"  Coverage gaps: {len(still_gaps)}")
-    if still_gaps:
-        gha_warning(f"Combos still below minimum ({min_combo}): {still_gaps}")
-    gha_endgroup()
-
+    log("\n" + "=" * 52)
+    log(f"✅ Done — {len(final_guides)} guides total "
+        f"(+{len(new_entries)} new, -{len(removed_guides)} removed)")
     return summary
 
 
