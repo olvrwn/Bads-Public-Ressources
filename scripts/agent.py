@@ -865,7 +865,10 @@ def run() -> dict:
             for g in removed_existing
         ],
     }
-
+    
+    # Write summary.json for the GitHub Actions workflow to consume
+    with open("summary.json", "w", encoding="utf-8") as f:
+    json.dump(summary, f, indent=2, ensure_ascii=False)
     print("\n📊 Summary:")
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return summary
