@@ -189,11 +189,15 @@ def is_duplicate(candidate: dict, existing: list[dict]) -> bool:
 
 def strip_fence(raw: str) -> str:
     """Remove markdown code fences Claude sometimes wraps JSON in."""
+    # ✅ SAFETY GUARD: handle non-string responses
+    if not isinstance(raw, str):
+        return ""
+
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[-1]
     if raw.endswith("```"):
-        raw = raw.rsplit("```", 1)
+        raw = raw.rsplit("```", 1)[0]  # ✅ FIXED (was returning tuple)
     return raw.strip()
 
 
@@ -242,8 +246,17 @@ def claude_fast(prompt: str, system: str = "") -> str:
         }
         if system:
             kwargs["system"] = system
+
         resp = client.messages.create(**kwargs)
-        return resp.content.text
+
+        # ✅ FIX: safely extract text from content blocks
+        parts = []
+        for block in resp.content:
+            text = getattr(block, "text", None)
+            if isinstance(text, str):
+                parts.append(text)
+
+        return "\n".join(parts)
 
     return _with_backoff(_call)
 
