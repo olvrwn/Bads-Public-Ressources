@@ -17,7 +17,7 @@ Key settings:
   - VALIDATION_THRESHOLD  : 6.0
   - TRUSTED_DOMAIN_BONUS  : +1.0
   - Dead-link rule        : moderate -- GET 404 or 410 only
-  - MIN_GUIDES_PER_COMBO  : 2    (top-up search fires when below this)
+  - MIN_GUIDES_PER_COMBO  : 3    (top-up search fires when below this)
   - MAX_TAGS              : 15   (hard cap on total distinct tags in the registry)
   - Snippet fetch         : yes, before scoring
   - Near-duplicate dedup  : URL normalisation + Jaccard title similarity
@@ -39,7 +39,7 @@ GUIDES_FILE = "guides.json"
 VALIDATION_THRESHOLD = 6.0
 TRUSTED_DOMAIN_BONUS  = 1.0
 
-MIN_GUIDES_PER_COMBO = 2
+MIN_GUIDES_PER_COMBO = 3
 
 # Hard cap on how many distinct tags may exist in the registry at once.
 # Claude can propose new ones, but the registry is pruned to this limit
