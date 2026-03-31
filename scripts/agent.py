@@ -327,7 +327,7 @@ def _check_liveness(guide: dict) -> tuple[dict, str]:
             return guide, "alive"
         return guide, "dead"
     except Exception:
-        return guide, "transient"
+        return guide, "dead"
 
 
 def audit_guides(guides: list[dict], config: dict) -> tuple[list[dict], list[dict]]:
