@@ -1,0 +1,61 @@
+{
+  "min_guides_per_combo": 2,
+  "max_tags": 15,
+  "validation_threshold": 5.5,
+  "habits": [
+    "Tobacco", "Alcohol", "Weed", "Pills", "Opioids",
+    "Cocaine", "Ecstasy", "Mushrooms", "Amphetamines",
+    "LSD", "GHB", "Heroin", "Gambling"
+  ],
+  "languages": [
+    {"code": "en", "name": "English",    "locale": "English-language"},
+    {"code": "fr", "name": "French",     "locale": "French-language"},
+    {"code": "de", "name": "German",     "locale": "German-language"},
+    {"code": "es", "name": "Spanish",    "locale": "Spanish-language"},
+    {"code": "pt", "name": "Portuguese", "locale": "Portuguese-language"}
+  ],
+  "core_tags": [
+    "overview", "risks", "effects", "treatment", "prevention",
+    "addiction", "trends", "medical", "global"
+  ],
+  "tag_registry": [
+    "overview", "risks", "effects", "treatment", "prevention",
+    "addiction", "trends", "medical", "global"
+  ],
+  "tag_merge_map": {
+    "risk":          "risks",
+    "effect":        "effects",
+    "trend":         "trends",
+    "health":        "medical",
+    "medicine":      "medical",
+    "therapy":       "treatment",
+    "rehab":         "treatment",
+    "recovery":      "treatment",
+    "abuse":         "addiction",
+    "dependency":    "addiction",
+    "dependence":    "addiction",
+    "drug":          "overview",
+    "substance":     "overview",
+    "education":     "prevention",
+    "awareness":     "prevention",
+    "statistics":    "trends",
+    "research":      "trends",
+    "science":       "medical",
+    "worldwide":     "global",
+    "international": "global"
+  },
+  "trusted_domains": {
+    "tier1": [
+      "who.int", "nih.gov", "cdc.gov", "pubmed.ncbi.nlm.nih.gov",
+      "ncbi.nlm.nih.gov", "nature.com", "sciencedirect.com",
+      "inserm.fr", "has-sante.fr", "bzga.de", "dhs.de",
+      "mscbs.gob.es", "sns.gov.pt", "fiocruz.br", "apa.org"
+    ],
+    "tier2": [
+      "healthline.com", "mayoclinic.org", "psychologytoday.com",
+      "webmd.com", "medlineplus.gov", "nhs.uk", "ameli.fr",
+      "gesundheitsinformation.de", "fundacionsalud.org",
+      "portaldasaude.pt", "drugabuse.gov", "samhsa.gov"
+    ]
+  }
+}
