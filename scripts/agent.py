@@ -188,7 +188,6 @@ def is_duplicate(candidate: dict, existing_guides: list[dict]) -> bool:
     return False
 
 
-
 def liveness_result(url: str) -> str:
     """
     Moderate dead-link detection.
@@ -446,7 +445,6 @@ If truly nothing exists, return [].
     return topup_candidates
 
 
-
 # ─── Step 3: Validate new articles ────────────────────────────────────────────
 
 def _score_article(article: dict) -> dict:
@@ -541,7 +539,7 @@ def validate_new_articles(
     print(f"   Approved: {len(approved)} | Rejected: {len(rejected)}")
     return approved, rejected
 
-# ─── Step 3: Audit existing guides (conservative liveness check) ──────────────
+# ─── Step 4: Audit existing guides (conservative liveness check) ──────────────
 
 def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     """
@@ -550,7 +548,7 @@ def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
     Timeouts, 5xx, 429, and pure network errors → keep the guide.
     Also stamps last_checked on every guide.
     """
-    print("\n✅ Step 3: Auditing existing guides (conservative liveness check)...")
+    print("\n✅ Step 4: Auditing existing guides (conservative liveness check)...")
     kept, removed = [], []
     now_iso = utc_now().isoformat()
 
@@ -561,7 +559,7 @@ def audit_existing_guides(guides: list[dict]) -> tuple[list[dict], list[dict]]:
 
         if result == "dead":
             print(f"   🗑️  Dead link removed: {url}")
-            guide["_removal_reason"] = "URL returned definitive 404/410/451"
+            guide["_removal_reason"] = "URL returned definitive 404/410"
             removed.append(guide)
         else:
             if result == "transient":
@@ -829,9 +827,12 @@ def run() -> dict:
                 "❌ JSON schema still invalid after repair!\n" + "\n".join(errors)
             )
 
+    # ── 8. Save ───────────────────────────────────────────────────────────────
+    # NOTE: save_guides() is called here. Everything after this point is
+    # reporting only and does NOT affect guides.json.
     save_guides(final_guides, tag_registry)
 
-    # ── Summary ───────────────────────────────────────────────────────────────
+    # ── Summary (reporting only — guides.json already written above) ──────────
     lang_counts = {l["code"]: 0 for l in LANGUAGES}
     habit_counts = {h: 0 for h in HABITS}
     for g in final_guides:
@@ -869,17 +870,26 @@ def run() -> dict:
         "guides_by_language": lang_counts,
         "guides_by_habit": habit_counts,
         "coverage_below_minimum": still_gaps,
-        "removed_urls": [g["url"] for g in removed_existing],
+        # Detailed lists for PR body and Slack notification
         "new_details": [
             {
                 "id": g["id"],
                 "url": g["url"],
                 "title": g.get("title", ""),
+                "description": g.get("description") or "",
                 "language": g.get("language", ""),
-                "habits": g.get("habits", []),
-                "tags": g.get("tags", []),
+                "habits": g.get("habits") or [],
+                "tags": g.get("tags") or [],
             }
             for g in new_entries
+        ],
+        "removed_details": [
+            {
+                "url": g["url"],
+                "title": g.get("title", ""),
+                "reason": g.get("_removal_reason", "Unknown"),
+            }
+            for g in removed_existing
         ],
     }
 
